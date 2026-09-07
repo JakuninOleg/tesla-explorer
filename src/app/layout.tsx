@@ -18,7 +18,11 @@ export const metadata: Metadata = {
     "AI-planned leisure routes for Tesla drivers exploring the USA.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html
       lang="en"
