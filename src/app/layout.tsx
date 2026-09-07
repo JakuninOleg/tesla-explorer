@@ -1,10 +1,13 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Geist_Mono, Outfit } from "next/font/google";
+import { PwaRegister } from "@/components/pwa-register";
+import { brand } from "@/lib/brand";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 const geistMono = Geist_Mono({
@@ -13,9 +16,34 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tesla Explorer",
-  description:
-    "AI-planned leisure routes for Tesla drivers exploring the USA.",
+  title: {
+    default: brand.name,
+    template: `%s · ${brand.name}`,
+  },
+  description: brand.description,
+  applicationName: brand.name,
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: brand.shortName,
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  // Next.js serves `src/app/icon.png` and `src/app/apple-icon.png` automatically.
+  icons: {
+    icon: [{ url: "/icon.png", type: "image/png" }],
+    apple: [{ url: "/apple-icon.png", type: "image/png" }],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: brand.background,
+  colorScheme: "dark",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -26,9 +54,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${outfit.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-background text-foreground">
+        <PwaRegister />
+        {children}
+      </body>
     </html>
   );
 }

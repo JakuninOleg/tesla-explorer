@@ -19,4 +19,5 @@ jobs:
       - run: npm run lint
       - run: npx next typegen
       - run: npm run typecheck
+      - run: npm run test
       - run: npm run build

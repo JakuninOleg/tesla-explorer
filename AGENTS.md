@@ -26,6 +26,7 @@ clean Next.js architecture — not feature sprawl.
 - Go-Ai gateway for LLM (`GO_AI_*`, server-only) — same pattern as Okhana
 - Mapbox for map / route visualization
 - Zod for request and AI structured-output validation
+- Vitest for unit tests (required in CI and before every ship)
 
 ## Code Rules
 - Strict TypeScript. No `any`.
@@ -82,17 +83,18 @@ Template lives in the `devlog` skill. This is for the human’s learning only.
 - Atomic commits: one logical change per commit.
 - Never commit or push unless the human explicitly asked.
 - Never commit `.devlog/`.
-- CI (GitHub Actions) runs lint + typecheck + build on `main` and PRs; CD is Vercel.
+- CI (GitHub Actions) runs lint + typecheck + **test** + build on `main` and PRs; CD is Vercel.
+- Stack includes **Vitest** — every behavior change needs tests.
 
 ## AI Assistant workflow
 - Read `AGENTS.md` at the start of each session.
 - Explain non-obvious architectural decisions in short comments or in `.devlog/`.
 - Before declaring a task complete **or** committing/pushing:
   1. `npx eslint` on every touched `.ts`/`.tsx` — **zero new errors**
-  2. **Code review** — Bugbot for feature/fix work; Security Review when auth/DB/user data/AI proxy are involved; fix high/medium before push; summarize for the human
-  3. `npm run test` when tests exist — green
+  2. **`npm run test` — always.** Add/update Vitest for changed behavior; green required. No “tests later”.
+  3. **Code review — always.** Bugbot for feature/fix work; Security Review when auth/DB/user data/AI proxy are involved; fix high/medium before push; summarize for the human
   4. `npm run build` — zero TypeScript errors  
-  Test/build alone (without eslint + review) are not enough.
+  Build alone (without eslint + tests + review) is not enough.
 - Go-Ai: browser → Next.js route handler → Go-Ai. Never call Go-Ai from the client with the shared secret. See skill `go-ai-integration`.
 
 ## Security

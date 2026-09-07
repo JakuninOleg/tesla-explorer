@@ -5,9 +5,11 @@ Pet / portfolio app: AI-planned leisure routes for newcomers in the USA who driv
 ## Stack
 
 - Next.js (App Router) + React + TypeScript + Tailwind CSS v4
+- Vitest (required in CI / ship gate)
 - Auth.js + Neon (planned)
 - Mapbox (planned)
 - Go-Ai gateway for LLM calls (server-only)
+- PWA (manifest + shell service worker + install CTA)
 
 ## Local setup
 
@@ -25,12 +27,14 @@ npm run dev
 | `npm run dev` | Dev server |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
+| `npm run test` | Vitest (required) |
 | `npm run build` | Production build |
 
 ## CI / CD
 
-- **CI:** GitHub Actions on `main` and PRs — lint, typecheck, build (`.github/workflows/ci.yml`).
+- **CI:** GitHub Actions on `main` and PRs — lint, typecheck, **test**, build (`.github/workflows/ci.yml`).
 - **CD:** Vercel deploys from `main` (and Preview deploys on PRs).
+- **Ship gate:** eslint → tests → Bugbot/security review → build (see `AGENTS.md`).
 
 ## Agent docs
 

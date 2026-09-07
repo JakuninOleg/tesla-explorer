@@ -30,10 +30,8 @@ Read [brand-rules.md](brand-rules.md) before changing colors, type, or chrome.
 - Prefer transform/opacity; keep UI chrome transitions ≤ 300ms.
 - No confetti, no bounce spam.
 
-## Screen checklist
-
-- [ ] Tokens from brand-rules / CSS variables — no random hex sprawl
-- [ ] Touch targets usable on mobile
-- [ ] Map + controls readable in dark theme
-- [ ] No inline `style={{}}` except map library requirements
-- [ ] No Okhana cream/teal tokens
+### 7. PWA
+- Manifest via `src/app/manifest.ts` / `getWebManifest()`
+- Shell SW `public/sw.js` (prod register only)
+- Install CTA: `PwaInstallButton` (Chromium prompt + iOS Share hint)
+- Safe areas: `env(safe-area-inset-*)` on shell pages

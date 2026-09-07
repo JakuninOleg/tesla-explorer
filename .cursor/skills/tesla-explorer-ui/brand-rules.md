@@ -28,6 +28,13 @@ Expose as Tailwind theme colors once `globals.css` is set.
 - Emoji-as-UI decoration
 - Card grids competing with the map
 
-## Copy tone
+## Assets
 
-Short, direct, confident. English UI first (USA product). No corporate fluff.
+| Asset | Path | Use |
+|-------|------|-----|
+| Mark (canonical) | `/brand/mark.png` | Favicon, header, hero |
+| Wordmark PNG | `/brand/wordmark.png` | Optional marketing; UI prefers mark + CSS type |
+| Constants | `src/lib/brand.ts` | Name, tagline, paths |
+
+Mark concept: geometric **E** as a route path + red destination pin. Original artwork — not the Tesla T.
+

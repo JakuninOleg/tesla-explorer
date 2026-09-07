@@ -1,13 +1,13 @@
 ---
-description: Mandatory ESLint + Bugbot/security review before commit/push
+description: Mandatory ESLint + tests + Bugbot/security review before commit/push
 alwaysApply: true
 ---
 
-# Ship checklist — ESLint + review (do not skip)
+# Ship checklist — ESLint + tests + review (do not skip)
 
 ## After writing code — before commit, push, PR, or “done”
 
-Do **in order**. Test/build alone are incomplete.
+Do **in order**. Build alone is incomplete. **Tests and code review are always required.**
 
 1. **ESLint** on every touched `.ts` / `.tsx`:
    ```bash
@@ -15,18 +15,25 @@ Do **in order**. Test/build alone are incomplete.
    ```
    Fix all **errors**. Pre-existing warnings in untouched test mocks may remain.
 
-2. **Code review (mandatory)** — do not push unreviewed feature work:
+2. **Tests (mandatory on every change set)**
+   - Add or update Vitest coverage for new/changed behavior (pure logic, API clients, Zod schemas, route handlers).
+   - UI-only chrome still needs at least a smoke/regression where logic moved; do not ship untested server/AI/auth/map helpers.
+   - Run:
+     ```bash
+     npm run test
+     ```
+   - Must be **green**. “No time for tests” is not allowed when declaring done.
+
+3. **Code review (mandatory)** — do not push unreviewed feature work:
    - Run **Bugbot** (`Task` / `subagent_type: "bugbot"`) on the branch or uncommitted changes.
    - Run **Security Review** (`subagent_type: "security-review"`) when the change touches auth, DB, AI proxy / Go-Ai, Mapbox tokens mishandling, or user data.
    - For smaller pure-UI tweaks: still do a focused self-review (correctness, a11y); Bugbot preferred when unsure.
    - **Fix high/medium findings** (or document why accepted) before push.
    - Summarize review outcome for the human (table or short bullets).
 
-3. **`npm run test`** — green (when the project has a test script).
+4. **`npm run build`** — zero TypeScript errors (CI also runs typecheck).
 
-4. **`npm run build`** — zero TypeScript errors.
-
-Skipping review “to save a turn” is not allowed when shipping code — same class of failure as skipping eslint.
+Skipping review or tests “to save a turn” is not allowed — same class of failure as skipping eslint.
 
 ## `react-hooks/set-state-in-effect`
 
