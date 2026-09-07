@@ -27,6 +27,15 @@
     "errorGeneric": "Проверьте форму и попробуйте снова.",
     "errorSave": "Не удалось сохранить профиль на этом устройстве."
   },
+  "Auth": {
+    "signIn": "Войти",
+    "signOut": "Выйти",
+    "signInTitle": "Вход",
+    "signInIntro": "Продолжите через Google, чтобы сохранить профиль и маршруты.",
+    "continueGoogle": "Продолжить с Google",
+    "profile": "Профиль",
+    "back": "Назад"
+  },
   "Chrome": {
     "toggleTheme": "Сменить тему",
     "installApp": "Установить",

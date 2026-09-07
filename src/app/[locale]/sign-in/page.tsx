@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { auth } from "@/auth";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { OnboardingForm } from "@/features/profile/onboarding-form";
-import { Link, redirect } from "@/i18n/navigation";
+import { GoogleSignInButton } from "@/features/auth/google-sign-in-button";
+import { Link } from "@/i18n/navigation";
 import { isLocale, routing } from "@/i18n/routing";
 import { getServerTheme } from "@/lib/theme";
+import { auth } from "@/auth";
+import { redirect } from "@/i18n/navigation";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("Onboarding");
-  return { title: t("title") };
+  const t = await getTranslations("Auth");
+  return { title: t("signInTitle") };
 }
 
-export default async function OnboardingPage({
+export default async function SignInPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
@@ -22,11 +23,11 @@ export default async function OnboardingPage({
   const locale = isLocale(raw) ? raw : routing.defaultLocale;
   const session = await auth();
 
-  if (!session?.user) {
-    redirect({ href: "/sign-in", locale });
+  if (session?.user) {
+    redirect({ href: "/onboarding", locale });
   }
 
-  const t = await getTranslations("Onboarding");
+  const t = await getTranslations("Auth");
   const tHome = await getTranslations("Home");
   const theme = await getServerTheme();
 
@@ -45,10 +46,16 @@ export default async function OnboardingPage({
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-6 py-12 md:px-10">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t("title")}</h1>
-        <p className="mt-4 text-base leading-relaxed text-muted-foreground">{t("intro")}</p>
-        <OnboardingForm />
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-16 md:px-10">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+          {t("signInTitle")}
+        </h1>
+        <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+          {t("signInIntro")}
+        </p>
+        <div className="mt-10">
+          <GoogleSignInButton />
+        </div>
         <Link
           href="/"
           className="mt-8 inline-flex h-12 w-fit items-center justify-center rounded-sm border border-border px-6 text-sm font-semibold tracking-[0.12em] text-foreground uppercase transition-colors hover:border-foreground/40"

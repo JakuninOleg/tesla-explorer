@@ -27,6 +27,15 @@
     "errorGeneric": "Check the form and try again.",
     "errorSave": "Could not save your profile on this device."
   },
+  "Auth": {
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "signInTitle": "Sign in",
+    "signInIntro": "Continue with Google to save your profile and routes.",
+    "continueGoogle": "Continue with Google",
+    "profile": "Profile",
+    "back": "Back"
+  },
   "Chrome": {
     "toggleTheme": "Toggle theme",
     "installApp": "Install app",

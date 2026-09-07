@@ -6,7 +6,7 @@ AI-planned leisure routes for Tesla drivers exploring the USA — maps, cinemati
 
 - Next.js (App Router) + React + TypeScript + Tailwind CSS v4
 - Vitest (required in CI / ship gate)
-- Auth.js + Neon (in progress)
+- Auth.js + Google (Neon persistence next)
 - next-intl (en / ru) + light/dark theme
 - Mapbox (planned)
 - Go-Ai gateway for LLM calls (server-only)
@@ -17,7 +17,9 @@ AI-planned leisure routes for Tesla drivers exploring the USA — maps, cinemati
 ```bash
 npm ci
 cp .env.example .env.local
-# fill GO_AI_* and other keys as needed
+# AUTH_SECRET, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET required for sign-in
+# Google Cloud Console → OAuth client (Web) → redirect:
+#   http://localhost:3000/api/auth/callback/google
 npm run dev
 ```
 
