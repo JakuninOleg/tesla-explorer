@@ -1,0 +1,33 @@
+# Brand rules (Tesla-inspired, not trademark copy)
+
+## Intent
+
+Visual language **inspired by** Tesla vehicle UI: dark surfaces, restrained accent,
+legible UI type. Do **not** ship official Tesla logos, wordmarks, or proprietary
+font files in a public repo. Prefer open fonts with a similar character
+(e.g. a clean geometric grotesk) defined once in CSS variables.
+
+## Tokens (initial — refine in `globals.css`)
+
+| Token | Role | Starting direction |
+|-------|------|--------------------|
+| `--background` | App canvas | Near-black / charcoal |
+| `--foreground` | Primary text | Off-white |
+| `--muted` | Secondary panels | Elevated dark gray |
+| `--accent` | Primary CTA / active route | Cool red or electric accent (pick one system, stick to it) |
+| `--map-route` | Polyline | Accent or soft white |
+| `--danger` | Low battery / errors | Clear red, not same as accent if accent is red |
+
+Expose as Tailwind theme colors once `globals.css` is set.
+
+## Anti-patterns
+
+- Okhana cream / teal / peach
+- Purple-on-white “AI startup” look
+- Dense admin dashboards on the trip hero
+- Emoji-as-UI decoration
+- Card grids competing with the map
+
+## Copy tone
+
+Short, direct, confident. English UI first (USA product). No corporate fluff.
