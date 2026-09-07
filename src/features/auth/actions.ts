@@ -9,7 +9,7 @@ function resolveLocale(locale: string): Locale {
 
 export async function signInWithGoogle(locale: string) {
   const safeLocale = resolveLocale(locale);
-  await signIn("google", { redirectTo: `/${safeLocale}/onboarding` });
+  await signIn("google", { redirectTo: `/${safeLocale}/dashboard` });
 }
 
 export async function signOutAction(locale: string) {

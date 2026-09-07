@@ -37,6 +37,9 @@ yarn-error.log*
 # private learning journal (not for GitHub)
 .devlog/
 
+# local knowledge graph (regenerated)
+graphify-out/
+
 # vercel
 .vercel
 

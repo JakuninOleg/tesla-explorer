@@ -53,12 +53,14 @@ export default async function OnboardingPage({
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t("title")}</h1>
         <p className="mt-4 text-base leading-relaxed text-muted-foreground">{t("intro")}</p>
         <OnboardingForm initialProfile={profile} />
-        <Link
-          href="/"
-          className="mt-8 inline-flex h-12 w-fit items-center justify-center rounded-sm border border-border px-6 text-sm font-semibold tracking-[0.12em] text-foreground uppercase transition-colors hover:border-foreground/40"
-        >
-          {t("back")}
-        </Link>
+        {profile ? (
+          <Link
+            href="/dashboard"
+            className="mt-8 inline-flex h-12 w-fit items-center justify-center rounded-sm border border-border px-6 text-sm font-semibold tracking-[0.12em] text-foreground uppercase transition-colors hover:border-foreground/40"
+          >
+            {t("back")}
+          </Link>
+        ) : null}
       </main>
     </div>
   );
