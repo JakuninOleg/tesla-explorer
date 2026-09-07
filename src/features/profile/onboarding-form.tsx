@@ -7,16 +7,19 @@ import {
   onboardingSchema,
   type OnboardingInput,
 } from "@/features/profile/onboarding-schema";
+import { saveProfileAction } from "@/features/profile/profile-actions";
 import { useRouter } from "@/i18n/navigation";
-
-const PROFILE_STORAGE_KEY = "tesla-explorer.profile.v1";
 
 const fieldClass =
   "mt-2 w-full rounded-sm border border-border bg-muted px-3 py-3 text-sm text-foreground outline-none transition-colors focus:border-foreground/40";
 
 const labelClass = "text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase";
 
-export function OnboardingForm() {
+export function OnboardingForm({
+  initialProfile,
+}: {
+  initialProfile?: OnboardingInput | null;
+}) {
   const router = useRouter();
   const t = useTranslations("Onboarding");
   const [error, setError] = useState<string | null>(null);
@@ -46,17 +49,19 @@ export function OnboardingForm() {
           return;
         }
 
-        const profile: OnboardingInput = parsed.data;
-        try {
-          window.sessionStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
-        } catch {
+        void (async () => {
+          const result = await saveProfileAction(parsed.data);
+          if (!result.ok) {
+            setPending(false);
+            setError(
+              result.error === "unauthorized" ? t("errorUnauthorized") : t("errorSave"),
+            );
+            return;
+          }
           setPending(false);
-          setError(t("errorSave"));
-          return;
-        }
-
-        setPending(false);
-        router.push("/");
+          router.push("/");
+          router.refresh();
+        })();
       }}
     >
       <label className="block">
@@ -66,6 +71,7 @@ export function OnboardingForm() {
           type="text"
           required
           autoComplete="address-level2"
+          defaultValue={initialProfile?.homePlace ?? ""}
           placeholder={t("homePlacePlaceholder")}
           className={fieldClass}
         />
@@ -79,13 +85,19 @@ export function OnboardingForm() {
               type="radio"
               name="household"
               value="solo"
-              defaultChecked
+              defaultChecked={(initialProfile?.household ?? "solo") === "solo"}
               className="accent-[var(--accent)]"
             />
             {t("solo")}
           </label>
           <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-sm border border-border px-3 py-3 text-sm has-[:checked]:border-accent">
-            <input type="radio" name="household" value="family" className="accent-[var(--accent)]" />
+            <input
+              type="radio"
+              name="household"
+              value="family"
+              defaultChecked={initialProfile?.household === "family"}
+              className="accent-[var(--accent)]"
+            />
             {t("family")}
           </label>
         </div>
@@ -97,6 +109,7 @@ export function OnboardingForm() {
           name="interests"
           required
           rows={3}
+          defaultValue={initialProfile?.interests ?? ""}
           placeholder={t("interestsPlaceholder")}
           className={fieldClass}
         />
@@ -104,7 +117,12 @@ export function OnboardingForm() {
 
       <label className="block">
         <span className={labelClass}>{t("teslaModel")}</span>
-        <select name="teslaModel" required defaultValue="Model Y" className={fieldClass}>
+        <select
+          name="teslaModel"
+          required
+          defaultValue={initialProfile?.teslaModel ?? "Model Y"}
+          className={fieldClass}
+        >
           {TESLA_MODELS.map((model) => (
             <option key={model} value={model}>
               {model}
@@ -121,7 +139,7 @@ export function OnboardingForm() {
           required
           min={1}
           max={100}
-          defaultValue={60}
+          defaultValue={initialProfile?.batteryPercent ?? 60}
           className={fieldClass}
         />
       </label>
@@ -138,5 +156,3 @@ export function OnboardingForm() {
     </form>
   );
 }
-
-export { PROFILE_STORAGE_KEY };

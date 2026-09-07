@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { OnboardingForm } from "@/features/profile/onboarding-form";
+import { getProfileForCurrentUser } from "@/features/profile/profile-actions";
 import { Link, redirect } from "@/i18n/navigation";
 import { isLocale, routing } from "@/i18n/routing";
 import { getServerTheme } from "@/lib/theme";
@@ -26,9 +27,12 @@ export default async function OnboardingPage({
     redirect({ href: "/sign-in", locale });
   }
 
-  const t = await getTranslations("Onboarding");
-  const tHome = await getTranslations("Home");
-  const theme = await getServerTheme();
+  const [t, tHome, theme, profile] = await Promise.all([
+    getTranslations("Onboarding"),
+    getTranslations("Home"),
+    getServerTheme(),
+    getProfileForCurrentUser(),
+  ]);
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
@@ -48,7 +52,7 @@ export default async function OnboardingPage({
       <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-6 py-12 md:px-10">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t("title")}</h1>
         <p className="mt-4 text-base leading-relaxed text-muted-foreground">{t("intro")}</p>
-        <OnboardingForm />
+        <OnboardingForm initialProfile={profile} />
         <Link
           href="/"
           className="mt-8 inline-flex h-12 w-fit items-center justify-center rounded-sm border border-border px-6 text-sm font-semibold tracking-[0.12em] text-foreground uppercase transition-colors hover:border-foreground/40"

@@ -25,7 +25,8 @@
     "submit": "Save profile",
     "back": "Back",
     "errorGeneric": "Check the form and try again.",
-    "errorSave": "Could not save your profile on this device."
+    "errorSave": "Could not save your profile. Try again.",
+    "errorUnauthorized": "Sign in again to save your profile."
   },
   "Auth": {
     "signIn": "Sign in",

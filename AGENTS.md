@@ -23,7 +23,7 @@ or “pet project” labels in the app.
 
 ## Stack
 - Next.js (App Router) + React + TypeScript (strict) + Tailwind CSS v4
-- Auth.js + Neon (PostgreSQL) — not Supabase for this repo
+- Auth.js + Neon (PostgreSQL) via Drizzle — Google sign-in, DB sessions, profiles
 - Go-Ai gateway for LLM (`GO_AI_*`, server-only) — same pattern as Okhana
 - Mapbox for map / route visualization
 - Zod for request and AI structured-output validation
