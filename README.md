@@ -1,12 +1,12 @@
 # Tesla Explorer
 
-Pet / portfolio app: AI-planned leisure routes for newcomers in the USA who drive a Tesla — maps, cinematic playback, charging-aware itineraries via [Go-Ai](https://github.com/JakuninOleg/Go-Ai).
+AI-planned leisure routes for Tesla drivers exploring the USA — maps, cinematic playback, and charging-aware itineraries via [Go-Ai](https://github.com/JakuninOleg/Go-Ai).
 
 ## Stack
 
 - Next.js (App Router) + React + TypeScript + Tailwind CSS v4
 - Vitest (required in CI / ship gate)
-- Auth.js + Neon (planned)
+- Auth.js + Neon (in progress)
 - Mapbox (planned)
 - Go-Ai gateway for LLM calls (server-only)
 - PWA (manifest + shell service worker + install CTA)
