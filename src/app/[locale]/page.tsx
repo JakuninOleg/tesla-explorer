@@ -1,9 +1,16 @@
 import Image from "next/image";
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { PwaInstallButton } from "@/components/pwa-install-button";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Link } from "@/i18n/navigation";
 import { brand } from "@/lib/brand";
+import { getServerTheme } from "@/lib/theme";
 
-export default function Home() {
+export default async function HomePage() {
+  const t = await getTranslations("Home");
+  const theme = await getServerTheme();
+
   return (
     <div className="relative flex min-h-full flex-1 flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <div
@@ -15,7 +22,7 @@ export default function Home() {
         className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:linear-gradient(to_right,var(--foreground)_1px,transparent_1px),linear-gradient(to_bottom,var(--foreground)_1px,transparent_1px)] [background-size:64px_64px]"
       />
 
-      <header className="relative z-10 flex items-center justify-between px-6 py-5 md:px-10">
+      <header className="relative z-10 flex items-center justify-between gap-3 px-6 py-5 md:px-10">
         <Link href="/" className="flex items-center gap-3">
           <Image
             src={brand.markSrc}
@@ -26,16 +33,18 @@ export default function Home() {
             priority
           />
           <span className="text-[0.7rem] font-semibold tracking-[0.28em] text-foreground uppercase">
-            {brand.name}
+            {t("brand")}
           </span>
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <LocaleSwitcher />
+          <ThemeToggle currentTheme={theme} />
           <PwaInstallButton />
           <Link
             href="/onboarding"
             className="rounded-sm border border-border px-4 py-2 text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase transition-colors hover:border-foreground/40 hover:text-foreground"
           >
-            Get started
+            {t("cta")}
           </Link>
         </div>
       </header>
@@ -44,19 +53,17 @@ export default function Home() {
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-12 md:flex-row md:items-end md:justify-between">
           <div className="max-w-xl">
             <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl md:text-6xl md:leading-[1.05]">
-              {brand.name}
+              {t("brand")}
             </h1>
             <p className="mt-5 max-w-md text-base leading-relaxed text-muted-foreground md:text-lg">
-              {brand.tagline} Share how much time you have, what you want, and
-              your battery level — get a route built around your stop in the
-              USA.
+              {t("tagline")} {t("pitch")}
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
                 href="/onboarding"
                 className="inline-flex h-12 min-h-11 items-center justify-center rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90"
               >
-                Get started
+                {t("cta")}
               </Link>
             </div>
           </div>
@@ -78,7 +85,7 @@ export default function Home() {
 
       <footer className="relative z-10 border-t border-border px-6 py-4 md:px-10">
         <p className="text-[0.65rem] tracking-[0.18em] text-muted-foreground uppercase">
-          Not affiliated with Tesla, Inc.
+          {t("disclaimer")}
         </p>
       </footer>
     </div>

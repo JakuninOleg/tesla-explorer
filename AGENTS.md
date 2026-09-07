@@ -27,6 +27,7 @@ or “pet project” labels in the app.
 - Go-Ai gateway for LLM (`GO_AI_*`, server-only) — same pattern as Okhana
 - Mapbox for map / route visualization
 - Zod for request and AI structured-output validation
+- next-intl (en/ru) + cookie theme (dark default), Okhana-style
 - Vitest for unit tests (required in CI and before every ship)
 
 ## Code Rules

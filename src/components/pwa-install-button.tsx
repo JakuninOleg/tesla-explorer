@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -20,17 +21,13 @@ function isStandaloneDisplay(): boolean {
   }
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
-    // iOS Safari legacy
     ("standalone" in navigator &&
       Boolean((navigator as Navigator & { standalone?: boolean }).standalone))
   );
 }
 
-/**
- * Native-install CTA when the browser fires `beforeinstallprompt`,
- * plus an iOS “Add to Home Screen” hint when that API is unavailable.
- */
 export function PwaInstallButton() {
+  const t = useTranslations("Chrome");
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(
     null,
   );
@@ -51,7 +48,6 @@ export function PwaInstallButton() {
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
     window.addEventListener("appinstalled", onInstalled);
 
-    // Defer platform detection — avoid sync setState inside useEffect body.
     const timer = window.setTimeout(() => {
       if (isStandaloneDisplay()) {
         setInstalled(true);
@@ -71,8 +67,8 @@ export function PwaInstallButton() {
 
   if (installed) {
     return (
-      <span className="inline-flex h-12 items-center px-2 text-xs tracking-[0.14em] text-muted-foreground uppercase">
-        Installed
+      <span className="inline-flex h-10 items-center px-2 text-xs tracking-[0.14em] text-muted-foreground uppercase">
+        {t("installed")}
       </span>
     );
   }
@@ -81,7 +77,7 @@ export function PwaInstallButton() {
     return (
       <button
         type="button"
-        className="inline-flex h-12 items-center justify-center rounded-sm border border-border px-6 text-sm font-semibold tracking-[0.12em] text-foreground uppercase transition-colors hover:border-foreground/40"
+        className="inline-flex h-10 items-center justify-center rounded-sm border border-border px-4 text-xs font-semibold tracking-[0.12em] text-foreground uppercase transition-colors hover:border-foreground/40"
         onClick={() => {
           void (async () => {
             await deferredPrompt.prompt();
@@ -93,15 +89,15 @@ export function PwaInstallButton() {
           })();
         }}
       >
-        Install app
+        {t("installApp")}
       </button>
     );
   }
 
   if (showIosHint) {
     return (
-      <p className="max-w-xs text-xs leading-relaxed tracking-[0.04em] text-muted-foreground">
-        On iPhone: Share → <span className="text-foreground">Add to Home Screen</span>
+      <p className="max-w-[11rem] text-[0.65rem] leading-snug text-muted-foreground">
+        {t("iosInstallHint")}
       </p>
     );
   }

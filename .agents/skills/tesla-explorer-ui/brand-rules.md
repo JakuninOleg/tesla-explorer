@@ -11,12 +11,10 @@ font files in a public repo. Prefer open fonts with a similar character
 
 | Token | Role | Starting direction |
 |-------|------|--------------------|
-| `--background` | App canvas | Near-black / charcoal |
-| `--foreground` | Primary text | Off-white |
-| `--muted` | Secondary panels | Elevated dark gray |
-| `--accent` | Primary CTA / active route | Cool red or electric accent (pick one system, stick to it) |
-| `--map-route` | Polyline | Accent or soft white |
-| `--danger` | Low battery / errors | Clear red, not same as accent if accent is red |
+| `--background` | App canvas | Light `#f4f4f4` / dark `#050505` (cookie theme, default dark) |
+| `--foreground` | Primary text | Near-black / off-white |
+| `--muted` | Secondary panels | Elevated gray |
+| `--accent` | Primary CTA | `#E31937` in both themes |
 
 Expose as Tailwind theme colors once `globals.css` is set.
 

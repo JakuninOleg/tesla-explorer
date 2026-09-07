@@ -1,12 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import {
   TESLA_MODELS,
   onboardingSchema,
   type OnboardingInput,
 } from "@/features/profile/onboarding-schema";
+import { useRouter } from "@/i18n/navigation";
 
 const PROFILE_STORAGE_KEY = "tesla-explorer.profile.v1";
 
@@ -17,6 +18,7 @@ const labelClass = "text-xs font-medium tracking-[0.14em] text-muted-foreground 
 
 export function OnboardingForm() {
   const router = useRouter();
+  const t = useTranslations("Onboarding");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -40,7 +42,7 @@ export function OnboardingForm() {
         const parsed = onboardingSchema.safeParse(raw);
         if (!parsed.success) {
           setPending(false);
-          setError(parsed.error.issues[0]?.message ?? "Check the form and try again.");
+          setError(parsed.error.issues[0]?.message ?? t("errorGeneric"));
           return;
         }
 
@@ -49,7 +51,7 @@ export function OnboardingForm() {
           window.sessionStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
         } catch {
           setPending(false);
-          setError("Could not save your profile on this device.");
+          setError(t("errorSave"));
           return;
         }
 
@@ -58,44 +60,50 @@ export function OnboardingForm() {
       }}
     >
       <label className="block">
-        <span className={labelClass}>Home base</span>
+        <span className={labelClass}>{t("homePlace")}</span>
         <input
           name="homePlace"
           type="text"
           required
           autoComplete="address-level2"
-          placeholder="City or neighborhood in the USA"
+          placeholder={t("homePlacePlaceholder")}
           className={fieldClass}
         />
       </label>
 
       <fieldset>
-        <legend className={labelClass}>Who is coming</legend>
+        <legend className={labelClass}>{t("household")}</legend>
         <div className="mt-3 flex gap-3">
           <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-sm border border-border px-3 py-3 text-sm has-[:checked]:border-accent">
-            <input type="radio" name="household" value="solo" defaultChecked className="accent-[var(--accent)]" />
-            Solo
+            <input
+              type="radio"
+              name="household"
+              value="solo"
+              defaultChecked
+              className="accent-[var(--accent)]"
+            />
+            {t("solo")}
           </label>
           <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-sm border border-border px-3 py-3 text-sm has-[:checked]:border-accent">
             <input type="radio" name="household" value="family" className="accent-[var(--accent)]" />
-            Family
+            {t("family")}
           </label>
         </div>
       </fieldset>
 
       <label className="block">
-        <span className={labelClass}>Interests</span>
+        <span className={labelClass}>{t("interests")}</span>
         <textarea
           name="interests"
           required
           rows={3}
-          placeholder="Food you like, places you enjoy, things to avoid"
+          placeholder={t("interestsPlaceholder")}
           className={fieldClass}
         />
       </label>
 
       <label className="block">
-        <span className={labelClass}>Tesla model</span>
+        <span className={labelClass}>{t("teslaModel")}</span>
         <select name="teslaModel" required defaultValue="Model Y" className={fieldClass}>
           {TESLA_MODELS.map((model) => (
             <option key={model} value={model}>
@@ -106,7 +114,7 @@ export function OnboardingForm() {
       </label>
 
       <label className="block">
-        <span className={labelClass}>Battery now (%)</span>
+        <span className={labelClass}>{t("battery")}</span>
         <input
           name="batteryPercent"
           type="number"
@@ -125,7 +133,7 @@ export function OnboardingForm() {
         disabled={pending}
         className="inline-flex h-12 items-center justify-center rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90 disabled:opacity-60"
       >
-        Save profile
+        {t("submit")}
       </button>
     </form>
   );

@@ -7,6 +7,7 @@ AI-planned leisure routes for Tesla drivers exploring the USA — maps, cinemati
 - Next.js (App Router) + React + TypeScript + Tailwind CSS v4
 - Vitest (required in CI / ship gate)
 - Auth.js + Neon (in progress)
+- next-intl (en / ru) + light/dark theme
 - Mapbox (planned)
 - Go-Ai gateway for LLM calls (server-only)
 - PWA (manifest + shell service worker + install CTA)
