@@ -3,6 +3,8 @@
 const SHELL_CACHE = "tesla-explorer-shell-v1";
 const SHELL_ASSETS = [
   "/",
+  "/en",
+  "/ru",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",

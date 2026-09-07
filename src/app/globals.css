@@ -1,7 +1,29 @@
 @import "tailwindcss";
 
+html.light {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+@custom-variant dark (&:is(.dark *));
+
 :root {
-  /* Tesla-inspired vehicle UI — dark by default */
+  --background: #f4f4f4;
+  --foreground: #0a0a0a;
+  --muted: #e8e8e8;
+  --muted-foreground: #5c5c5c;
+  --border: #d4d4d4;
+  --accent: #e31937;
+  --accent-foreground: #ffffff;
+  --map-route: #0a0a0a;
+  --danger: #c62828;
+  --ring: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.dark {
   --background: #050505;
   --foreground: #f4f4f4;
   --muted: #141414;

@@ -11,6 +11,6 @@ describe("brand", () => {
 
   it("keeps a short English tagline", () => {
     expect(brand.tagline.length).toBeGreaterThan(8);
-    expect(brand.tagline).not.toMatch(/todo|lorem/i);
+    expect(brand.tagline).not.toMatch(/todo|lorem|pet|sprint/i);
   });
 });

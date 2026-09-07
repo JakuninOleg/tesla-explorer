@@ -1,12 +1,13 @@
 # Tesla Explorer
 
-Pet / portfolio app: AI-planned leisure routes for newcomers in the USA who drive a Tesla — maps, cinematic playback, charging-aware itineraries via [Go-Ai](https://github.com/JakuninOleg/Go-Ai).
+AI-planned leisure routes for Tesla drivers exploring the USA — maps, cinematic playback, and charging-aware itineraries via [Go-Ai](https://github.com/JakuninOleg/Go-Ai).
 
 ## Stack
 
 - Next.js (App Router) + React + TypeScript + Tailwind CSS v4
 - Vitest (required in CI / ship gate)
-- Auth.js + Neon (planned)
+- Auth.js + Google + Neon (Drizzle, DB sessions + profile)
+- next-intl (en / ru) + light/dark theme
 - Mapbox (planned)
 - Go-Ai gateway for LLM calls (server-only)
 - PWA (manifest + shell service worker + install CTA)
@@ -16,7 +17,17 @@ Pet / portfolio app: AI-planned leisure routes for newcomers in the USA who driv
 ```bash
 npm ci
 cp .env.example .env.local
-# fill GO_AI_* and other keys as needed
+```
+
+Fill:
+
+1. **Neon** — [console.neon.tech](https://console.neon.tech) → create project → copy `DATABASE_URL`
+2. Push schema: `npm run db:push`
+3. **Google OAuth** — Cloud Console → OAuth Web client  
+   Redirect: `http://localhost:3000/api/auth/callback/google`
+4. `AUTH_SECRET` — `openssl rand -base64 32`
+
+```bash
 npm run dev
 ```
 

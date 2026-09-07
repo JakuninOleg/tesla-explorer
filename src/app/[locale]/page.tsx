@@ -1,9 +1,20 @@
 import Image from "next/image";
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
+import { auth } from "@/auth";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { PwaInstallButton } from "@/components/pwa-install-button";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { SignOutButton } from "@/features/auth/sign-out-button";
+import { Link } from "@/i18n/navigation";
 import { brand } from "@/lib/brand";
+import { getServerTheme } from "@/lib/theme";
 
-export default function Home() {
+export default async function HomePage() {
+  const t = await getTranslations("Home");
+  const tAuth = await getTranslations("Auth");
+  const theme = await getServerTheme();
+  const session = await auth();
+
   return (
     <div className="relative flex min-h-full flex-1 flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <div
@@ -15,7 +26,7 @@ export default function Home() {
         className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:linear-gradient(to_right,var(--foreground)_1px,transparent_1px),linear-gradient(to_bottom,var(--foreground)_1px,transparent_1px)] [background-size:64px_64px]"
       />
 
-      <header className="relative z-10 flex items-center justify-between px-6 py-5 md:px-10">
+      <header className="relative z-10 flex items-center justify-between gap-3 px-6 py-5 md:px-10">
         <Link href="/" className="flex items-center gap-3">
           <Image
             src={brand.markSrc}
@@ -26,35 +37,53 @@ export default function Home() {
             priority
           />
           <span className="text-[0.7rem] font-semibold tracking-[0.28em] text-foreground uppercase">
-            Tesla Explorer
+            {t("brand")}
           </span>
         </Link>
-        <PwaInstallButton />
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <LocaleSwitcher />
+          <ThemeToggle currentTheme={theme} />
+          <PwaInstallButton />
+          {session?.user ? (
+            <>
+              <span className="hidden max-w-[10rem] truncate text-xs text-muted-foreground sm:inline">
+                {session.user.name ?? session.user.email}
+              </span>
+              <Link
+                href="/onboarding"
+                className="rounded-sm border border-border px-4 py-2 text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase transition-colors hover:border-foreground/40 hover:text-foreground"
+              >
+                {tAuth("profile")}
+              </Link>
+              <SignOutButton />
+            </>
+          ) : (
+            <Link
+              href="/sign-in"
+              className="rounded-sm border border-border px-4 py-2 text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase transition-colors hover:border-foreground/40 hover:text-foreground"
+            >
+              {tAuth("signIn")}
+            </Link>
+          )}
+        </div>
       </header>
 
       <main className="relative z-10 flex flex-1 flex-col justify-center px-6 pb-20 md:px-10">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-12 md:flex-row md:items-end md:justify-between">
           <div className="max-w-xl">
-            <p className="mb-5 text-[0.7rem] font-medium tracking-[0.32em] text-accent uppercase">
-              After hours · USA
-            </p>
             <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl md:text-6xl md:leading-[1.05]">
-              {brand.name}
+              {t("brand")}
             </h1>
             <p className="mt-5 max-w-md text-base leading-relaxed text-muted-foreground md:text-lg">
-              {brand.tagline} Tell us your time, mood, and battery — we chart a
-              charge-aware evening around wherever you landed.
+              {t("tagline")} {t("pitch")}
             </p>
-            <div id="plan" className="mt-9 flex flex-wrap items-center gap-3">
+            <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
-                href="#plan"
+                href={session?.user ? "/onboarding" : "/sign-in"}
                 className="inline-flex h-12 min-h-11 items-center justify-center rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90"
               >
-                Start planning
+                {t("cta")}
               </Link>
-              <span className="inline-flex h-12 items-center px-2 text-xs tracking-[0.14em] text-muted-foreground uppercase">
-                Sprint 1 · PWA
-              </span>
             </div>
           </div>
 
@@ -62,23 +91,20 @@ export default function Home() {
             <div className="overflow-hidden rounded-sm border border-border bg-muted/80">
               <Image
                 src={brand.markSrc}
-                alt={`${brand.name} mark`}
+                alt=""
                 width={512}
                 height={512}
                 className="h-auto w-full"
                 priority
               />
             </div>
-            <p className="mt-3 text-[0.65rem] tracking-[0.2em] text-muted-foreground uppercase">
-              Installable · standalone display
-            </p>
           </div>
         </div>
       </main>
 
       <footer className="relative z-10 border-t border-border px-6 py-4 md:px-10">
         <p className="text-[0.65rem] tracking-[0.18em] text-muted-foreground uppercase">
-          Pet project · Tesla-inspired UI · not affiliated with Tesla, Inc.
+          {t("disclaimer")}
         </p>
       </footer>
     </div>

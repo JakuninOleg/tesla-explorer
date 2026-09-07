@@ -12,20 +12,22 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Project
 
-Tesla Explorer is a pet / portfolio app: AI-planned leisure routes for newcomers
-in the USA who drive a Tesla. After work or on weekends the user sets time,
-mood, food preferences, and battery state; the app builds a route with optional
-charging stops, cinematic map playback, and place context (reviews / video).
+Tesla Explorer plans leisure routes for newcomers in the USA who drive a
+Tesla. After work or on weekends the user sets time, mood, food preferences,
+and battery state; the app builds a route with optional charging stops,
+cinematic map playback, and place context (reviews / video).
 
-Not a production SaaS to sell. Optimize for craft: maps, motion, AI orchestration,
-clean Next.js architecture — not feature sprawl.
+Craft focus: maps, motion, AI orchestration, clean Next.js architecture —
+not feature sprawl. Public UI copy stays product-facing; no internal sprint
+or “pet project” labels in the app.
 
 ## Stack
 - Next.js (App Router) + React + TypeScript (strict) + Tailwind CSS v4
-- Auth.js + Neon (PostgreSQL) — not Supabase for this repo
+- Auth.js + Neon (PostgreSQL) via Drizzle — Google sign-in, DB sessions, profiles
 - Go-Ai gateway for LLM (`GO_AI_*`, server-only) — same pattern as Okhana
 - Mapbox for map / route visualization
 - Zod for request and AI structured-output validation
+- next-intl (en/ru) + cookie theme (dark default), Okhana-style
 - Vitest for unit tests (required in CI and before every ship)
 
 ## Code Rules

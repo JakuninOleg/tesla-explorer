@@ -1,0 +1,46 @@
+{
+  "Meta": {
+    "title": "Tesla Explorer",
+    "description": "AI-planned leisure routes for Tesla drivers exploring the USA — time, charge, and curiosity."
+  },
+  "Home": {
+    "brand": "Tesla Explorer",
+    "tagline": "Plan the drive. Find the place.",
+    "pitch": "Share how much time you have, what you want, and your battery level — get a route built around your stop in the USA.",
+    "cta": "Get started",
+    "disclaimer": "Not affiliated with Tesla, Inc."
+  },
+  "Onboarding": {
+    "title": "Create your profile",
+    "intro": "Tell us where you start from, what you like, and which Tesla you drive. We use that to plan routes that fit your time and charge.",
+    "homePlace": "Home base",
+    "homePlacePlaceholder": "City or neighborhood in the USA",
+    "household": "Who is coming",
+    "solo": "Solo",
+    "family": "Family",
+    "interests": "Interests",
+    "interestsPlaceholder": "Food you like, places you enjoy, things to avoid",
+    "teslaModel": "Tesla model",
+    "battery": "Battery now (%)",
+    "submit": "Save profile",
+    "back": "Back",
+    "errorGeneric": "Check the form and try again.",
+    "errorSave": "Could not save your profile. Try again.",
+    "errorUnauthorized": "Sign in again to save your profile."
+  },
+  "Auth": {
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "signInTitle": "Sign in",
+    "signInIntro": "Continue with Google to save your profile and routes.",
+    "continueGoogle": "Continue with Google",
+    "profile": "Profile",
+    "back": "Back"
+  },
+  "Chrome": {
+    "toggleTheme": "Toggle theme",
+    "installApp": "Install app",
+    "installed": "Installed",
+    "iosInstallHint": "On iPhone: Share → Add to Home Screen"
+  }
+}
