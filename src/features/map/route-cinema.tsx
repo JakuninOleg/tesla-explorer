@@ -1,9 +1,13 @@
 "use client";
 
 import type { LineString } from "geojson";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RouteMap } from "@/features/map/route-map";
-import type { MappedStop } from "@/features/map/route-geometry";
+import {
+  progressNearCoordinate,
+  type LngLat,
+  type MappedStop,
+} from "@/features/map/route-geometry";
 
 const PLAYBACK_MS = 14000;
 
@@ -30,7 +34,19 @@ export function RouteCinema({
 }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
+  const routeKey = useMemo(
+    () => JSON.stringify({ stops, line }),
+    [stops, line],
+  );
   const canPlay = Boolean(token && line && line.coordinates.length >= 2);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPlaying(false);
+      setProgress(null);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [routeKey]);
 
   useEffect(() => {
     if (!playing) {
@@ -54,17 +70,23 @@ export function RouteCinema({
 
     frame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frame);
-  }, [playing]); // eslint-disable-line react-hooks/exhaustive-deps -- restart only on play toggle
+    // Intentionally omit progress: restart only when play toggles on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing]);
 
-  const chargeNear =
-    progress != null &&
-    stops.some((stop, index) => {
+  const chargeNear = useMemo(() => {
+    if (progress == null || !line) {
+      return false;
+    }
+    const coordinates = line.coordinates as LngLat[];
+    return stops.some((stop) => {
       if (stop.kind !== "charge" && stop.role !== "charge") {
         return false;
       }
-      const stopAt = stops.length <= 1 ? 0 : index / (stops.length - 1);
-      return Math.abs(stopAt - progress) < 0.06;
+      const at = progressNearCoordinate(coordinates, stop.lngLat);
+      return Math.abs(at - progress) < 0.05;
     });
+  }, [progress, line, stops]);
 
   return (
     <div className="flex flex-col gap-4">

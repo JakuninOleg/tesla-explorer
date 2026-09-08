@@ -140,3 +140,33 @@ export function pointAlongLine(
 
   return coordinates[coordinates.length - 1]!;
 }
+
+/** Fraction 0..1 along the line closest to a target coordinate. */
+export function progressNearCoordinate(
+  coordinates: LngLat[],
+  target: LngLat,
+): number {
+  if (coordinates.length === 0) {
+    return 0;
+  }
+  if (coordinates.length === 1) {
+    return 0;
+  }
+
+  let bestProgress = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  const samples = 48;
+  for (let i = 0; i <= samples; i += 1) {
+    const progress = i / samples;
+    const point = pointAlongLine(coordinates, progress);
+    if (!point) {
+      continue;
+    }
+    const distance = haversineMiles(point, target);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestProgress = progress;
+    }
+  }
+  return bestProgress;
+}
