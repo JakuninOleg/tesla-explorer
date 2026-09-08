@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { RouteMapSection } from "@/features/map/route-map-section";
 import { RateRouteForm } from "@/features/routes/rate-route-form";
 import { RouteDecisionPanel } from "@/features/routes/route-decision-panel";
 import { getRouteForCurrentUser } from "@/features/routes/route-actions";
@@ -59,7 +60,7 @@ export default async function RouteDetailPage({
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-12 px-6 py-12 md:px-10">
+      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-12 px-6 py-12 md:px-10">
         <section>
           <Link
             href="/dashboard"
@@ -74,7 +75,7 @@ export default async function RouteDetailPage({
             {detail.title}
           </h1>
           {detail.summary ? (
-            <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
               {detail.summary}
             </p>
           ) : null}
@@ -92,13 +93,15 @@ export default async function RouteDetailPage({
           {detail.rangeWarning ? (
             <p className="mt-2 text-sm text-danger">{detail.rangeWarning}</p>
           ) : null}
-          <p className="mt-4 text-sm text-foreground/80">
+          <p className="mt-4 max-w-2xl text-sm text-foreground/80">
             <span className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
               {t("request")}
             </span>
             <span className="mt-1 block">{detail.requestPrompt}</span>
           </p>
         </section>
+
+        <RouteMapSection stops={detail.stops} />
 
         <section>
           <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
