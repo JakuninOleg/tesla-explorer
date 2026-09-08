@@ -15,6 +15,13 @@
       "when": 1788813025168,
       "tag": "0001_hot_black_widow",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788850000000,
+      "tag": "0002_cabin_anchors",
+      "breakpoints": true
     }
   ]
 }

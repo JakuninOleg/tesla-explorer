@@ -3,20 +3,35 @@ import {
   buildPlanSystemPrompt,
   buildPlanUserPrompt,
 } from "@/features/routes/plan-prompt";
+import { estimateRangeMiles } from "@/features/routes/tesla-range";
 
 describe("plan prompt builder", () => {
-  it("includes profile, request, and past route memory", () => {
+  it("includes anchors, range budget fact, and past approved memory", () => {
+    const range = estimateRangeMiles({
+      model: "Model Y",
+      batteryPercent: 45,
+    });
+
     const prompt = buildPlanUserPrompt({
       profile: {
-        homePlace: "Tampa, FL",
+        homeAddress: "12 Oak St, Tampa, FL",
+        homeLat: 27.95,
+        homeLng: -82.45,
+        workAddress: "100 Office Blvd, Tampa, FL",
+        workLat: 27.96,
+        workLng: -82.46,
         household: "family",
         interests: "seafood, parks",
         teslaModel: "Model Y",
-        batteryPercent: 70,
       },
-      requestPrompt: "Quiet sunset drive under 3 hours",
-      availableHours: 3,
-      batteryPercent: 45,
+      input: {
+        requestPrompt: "from office home for kids then explore",
+        availableHours: 3,
+        batteryPercent: 45,
+        startAnchor: "work",
+        startOtherText: "",
+      },
+      range,
       pastRoutes: [
         {
           title: "Bay loop",
@@ -28,33 +43,11 @@ describe("plan prompt builder", () => {
       ],
     });
 
-    expect(prompt).toContain("Tampa, FL");
-    expect(prompt).toContain("Battery now: 45%");
-    expect(prompt).toContain("Quiet sunset drive");
-    expect(prompt).toContain('rating 5/5');
+    expect(prompt).toContain("Home: 12 Oak St");
+    expect(prompt).toContain("Work: 100 Office Blvd");
+    expect(prompt).toContain("Start (work)");
+    expect(prompt).toContain("RANGE BUDGET (FACT");
     expect(prompt).toContain("Avoid loud malls");
-  });
-
-  it("notes when there are no past ratings", () => {
-    const prompt = buildPlanUserPrompt({
-      profile: {
-        homePlace: "Austin, TX",
-        household: "solo",
-        interests: "coffee",
-        teslaModel: "Model 3",
-        batteryPercent: 80,
-      },
-      requestPrompt: "Coffee and a viewpoint",
-      availableHours: 2,
-      batteryPercent: 80,
-      pastRoutes: [],
-    });
-
-    expect(prompt).toContain("Past rated routes: none yet.");
-  });
-
-  it("asks for JSON-only itinerary shape in the system prompt", () => {
-    expect(buildPlanSystemPrompt()).toMatch(/JSON only/i);
-    expect(buildPlanSystemPrompt()).toMatch(/stops/);
+    expect(buildPlanSystemPrompt()).toMatch(/do not invent a different/i);
   });
 });

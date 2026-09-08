@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { LocaleSwitcher } from "@/components/locale-switcher";
@@ -9,11 +10,17 @@ import { PlanRouteForm } from "@/features/routes/plan-route-form";
 import { listRoutesForCurrentUser } from "@/features/routes/route-actions";
 import { Link, redirect } from "@/i18n/navigation";
 import { isLocale, routing } from "@/i18n/routing";
+import { brand } from "@/lib/brand";
 import { getServerTheme } from "@/lib/theme";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Dashboard");
   return { title: t("title") };
+}
+
+function shortenAddress(address: string): string {
+  const part = address.split(",")[0]?.trim();
+  return part && part.length > 0 ? part : address;
 }
 
 export default async function DashboardPage({
@@ -30,7 +37,7 @@ export default async function DashboardPage({
   }
 
   const profile = await getProfileForCurrentUser();
-  if (!profile) {
+  if (!profile || profile.workAddress.trim().length < 5) {
     return redirect({ href: "/onboarding", locale });
   }
 
@@ -41,6 +48,10 @@ export default async function DashboardPage({
     getServerTheme(),
     listRoutesForCurrentUser(),
   ]);
+
+  const proposed = routeList.filter((route) => route.status === "proposed");
+  const approved = routeList.filter((route) => route.status === "approved");
+  const displayName = session.user.name?.split(" ")[0] ?? session.user.name ?? t("driver");
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
@@ -65,30 +76,88 @@ export default async function DashboardPage({
       </header>
 
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-12 px-6 py-12 md:px-10">
-        <section>
-          <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-            {profile.homePlace} · {profile.teslaModel}
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
-            {t("title")}
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-            {t("intro")}
-          </p>
-          <div className="mt-8">
-            <PlanRouteForm defaultBatteryPercent={profile.batteryPercent} />
+        <section className="flex items-start gap-5">
+          <Image
+            src={brand.markSrc}
+            alt=""
+            width={72}
+            height={72}
+            className="h-[72px] w-[72px] shrink-0 rounded-sm border border-border bg-muted"
+          />
+          <div className="min-w-0">
+            <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+              {profile.teslaModel}
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
+              {t("greeting", { name: displayName })}
+            </h1>
+            <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+              {t("intro")}
+            </p>
+            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+              {t("anchors", {
+                home: shortenAddress(profile.homeAddress),
+                work: shortenAddress(profile.workAddress),
+              })}
+            </p>
           </div>
         </section>
 
         <section>
           <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-            {t("pastRoutes")}
+            {t("newTrip")}
           </h2>
-          {routeList.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">{t("emptyRoutes")}</p>
+          <p className="mt-3 text-sm text-muted-foreground">{t("assistantCue")}</p>
+          <div className="mt-6">
+            <PlanRouteForm
+              homeLabel={shortenAddress(profile.homeAddress)}
+              workLabel={shortenAddress(profile.workAddress)}
+            />
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+            {t("proposedRoutes")}
+          </h2>
+          {proposed.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">{t("emptyProposed")}</p>
           ) : (
             <ul className="mt-4 divide-y divide-border border-t border-border">
-              {routeList.map((route) => (
+              {proposed.map((route) => (
+                <li key={route.id}>
+                  <Link
+                    href={`/routes/${route.id}`}
+                    className="flex items-baseline justify-between gap-4 py-4 transition-colors hover:text-accent"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-foreground">
+                        {route.title}
+                      </span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {t("hoursShort", { hours: route.availableHours })} ·{" "}
+                        {route.createdAt.toLocaleDateString(locale)}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-xs tracking-[0.12em] text-muted-foreground uppercase">
+                      {t("statusProposed")}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section>
+          <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+            {t("savedRoutes")}
+          </h2>
+          {approved.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">{t("emptySaved")}</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-border border-t border-border">
+              {approved.map((route) => (
                 <li key={route.id}>
                   <Link
                     href={`/routes/${route.id}`}

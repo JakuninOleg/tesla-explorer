@@ -60,7 +60,9 @@ export function RateRouteForm({
             setError(
               result.error === "unauthorized"
                 ? t("errorUnauthorized")
-                : t("errorSave"),
+                : result.error === "not_approved"
+                  ? t("errorNotApproved")
+                  : t("errorSave"),
             );
             return;
           }

@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { AddressAutocomplete } from "@/features/geo/address-autocomplete";
 import { planRouteInputSchema } from "@/features/routes/itinerary-schema";
 import { planRouteAction } from "@/features/routes/route-actions";
 import { useRouter } from "@/i18n/navigation";
@@ -12,15 +13,29 @@ const fieldClass =
 const labelClass =
   "text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase";
 
+function readCoord(value: FormDataEntryValue | null): number | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    return null;
+  }
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : null;
+}
+
 export function PlanRouteForm({
-  defaultBatteryPercent,
+  homeLabel,
+  workLabel,
 }: {
-  defaultBatteryPercent: number;
+  homeLabel: string;
+  workLabel: string;
 }) {
   const router = useRouter();
   const t = useTranslations("Dashboard");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [startAnchor, setStartAnchor] = useState<"home" | "work" | "other">(
+    "work",
+  );
 
   return (
     <form
@@ -35,6 +50,10 @@ export function PlanRouteForm({
           requestPrompt: String(form.get("requestPrompt") ?? ""),
           availableHours: form.get("availableHours"),
           batteryPercent: form.get("batteryPercent"),
+          startAnchor: String(form.get("startAnchor") ?? "home"),
+          startOtherText: String(form.get("otherAddress") ?? ""),
+          startOtherLat: readCoord(form.get("otherLat")),
+          startOtherLng: readCoord(form.get("otherLng")),
         };
 
         const parsed = planRouteInputSchema.safeParse(raw);
@@ -67,6 +86,43 @@ export function PlanRouteForm({
         })();
       }}
     >
+      <fieldset>
+        <legend className={labelClass}>{t("startFrom")}</legend>
+        <div className="mt-3 flex flex-col gap-2">
+          {(
+            [
+              ["home", t("startHome", { address: homeLabel })],
+              ["work", t("startWork", { address: workLabel })],
+              ["other", t("startOther")],
+            ] as const
+          ).map(([value, label]) => (
+            <label
+              key={value}
+              className="flex cursor-pointer items-start gap-2 rounded-sm border border-border px-3 py-3 text-sm has-[:checked]:border-accent"
+            >
+              <input
+                type="radio"
+                name="startAnchor"
+                value={value}
+                checked={startAnchor === value}
+                onChange={() => setStartAnchor(value)}
+                className="mt-0.5 accent-[var(--accent)]"
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {startAnchor === "other" ? (
+        <AddressAutocomplete
+          label={t("otherAddress")}
+          namePrefix="other"
+          placeholder={t("otherAddressPlaceholder")}
+          searchUnavailableHint={t("addressSearchUnavailable")}
+        />
+      ) : null}
+
       <label className="block">
         <span className={labelClass}>{t("prompt")}</span>
         <textarea
@@ -99,7 +155,7 @@ export function PlanRouteForm({
             required
             min={1}
             max={100}
-            defaultValue={defaultBatteryPercent}
+            defaultValue={60}
             className={fieldClass}
           />
         </label>
