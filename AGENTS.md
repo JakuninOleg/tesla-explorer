@@ -25,7 +25,7 @@ or “pet project” labels in the app.
 - Next.js (App Router) + React + TypeScript (strict) + Tailwind CSS v4
 - Auth.js + Neon (PostgreSQL) via Drizzle — Google sign-in, DB sessions, profiles
 - Go-Ai gateway for LLM (`GO_AI_*`, server-only) — same pattern as Okhana
-- Mapbox for map / route visualization
+- Mapbox for map / route visualization / geocoding
 - Zod for request and AI structured-output validation
 - next-intl (en/ru) + cookie theme (dark default), Okhana-style
 - Vitest for unit tests (required in CI and before every ship)
