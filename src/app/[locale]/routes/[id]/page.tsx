@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { RouteMapSection } from "@/features/map/route-map-section";
+import { buildPlaceContextLinks } from "@/features/places/place-links";
 import { RateRouteForm } from "@/features/routes/rate-route-form";
 import { RouteDecisionPanel } from "@/features/routes/route-decision-panel";
 import { getRouteForCurrentUser } from "@/features/routes/route-actions";
@@ -108,23 +109,44 @@ export default async function RouteDetailPage({
             {t("stops")}
           </h2>
           <ol className="mt-4 space-y-6">
-            {detail.stops.map((stop, index) => (
-              <li key={`${stop.name}-${index}`} className="border-l border-border pl-4">
-                <p className="text-sm font-medium text-foreground">
-                  {index + 1}. {stop.name}
-                </p>
-                <p className="mt-1 text-xs tracking-[0.12em] text-muted-foreground uppercase">
-                  {stop.role} · {stop.kind} ·{" "}
-                  {t("minutes", { count: stop.approxMinutes })}
-                  {stop.approxDriveMiles != null
-                    ? ` · ${t("miles", { count: stop.approxDriveMiles })}`
-                    : null}
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {stop.reason}
-                </p>
-              </li>
-            ))}
+            {detail.stops.map((stop, index) => {
+              const place = buildPlaceContextLinks(stop);
+              return (
+                <li key={`${stop.name}-${index}`} className="border-l border-border pl-4">
+                  <p className="text-sm font-medium text-foreground">
+                    {index + 1}. {stop.name}
+                  </p>
+                  <p className="mt-1 text-xs tracking-[0.12em] text-muted-foreground uppercase">
+                    {stop.role} · {stop.kind} ·{" "}
+                    {t("minutes", { count: stop.approxMinutes })}
+                    {stop.approxDriveMiles != null
+                      ? ` · ${t("miles", { count: stop.approxDriveMiles })}`
+                      : null}
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {stop.reason}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    <a
+                      href={place.mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs tracking-[0.12em] text-accent uppercase transition-opacity hover:opacity-80"
+                    >
+                      {t("placeMaps")}
+                    </a>
+                    <a
+                      href={place.youtubeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs tracking-[0.12em] text-accent uppercase transition-opacity hover:opacity-80"
+                    >
+                      {t("placeYoutube")}
+                    </a>
+                  </div>
+                </li>
+              );
+            })}
           </ol>
         </section>
 

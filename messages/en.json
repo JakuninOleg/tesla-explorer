@@ -88,6 +88,8 @@
     "cinemaPause": "Pause",
     "cinemaReplay": "Replay",
     "cinemaCharging": "Charging stop",
+    "placeMaps": "Maps / reviews",
+    "placeYoutube": "YouTube",
     "stops": "Stops",
     "minutes": "{count} min",
     "miles": "{count} mi drive",
