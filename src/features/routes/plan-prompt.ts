@@ -1,4 +1,6 @@
 import type { OnboardingInput } from "@/features/profile/onboarding-schema";
+import type { PlanRouteInput } from "@/features/routes/itinerary-schema";
+import type { RangeBudget } from "@/features/routes/tesla-range";
 
 export type PastRouteMemory = {
   title: string;
@@ -11,40 +13,78 @@ export type PastRouteMemory = {
 export function buildPlanSystemPrompt(): string {
   return [
     "You are Tesla Explorer's route planner for leisure drives in the USA.",
-    "Plan realistic stops for a Tesla driver based on home base, time, battery, household, and interests.",
-    "Prefer Supercharger-aware pacing when charge is low; do not invent fake booking flows.",
-    "Learn from the driver's past ratings and notes when provided.",
-    "Respond with JSON only — no markdown — matching this shape:",
-    '{"title":"string","summary":"string","stops":[{"name":"string","kind":"scenic|food|charge|activity|viewpoint|other","reason":"string","approxMinutes":number,"lat":number?,"lng":number?}]}',
-    "Include 2–8 stops. approxMinutes is time at/for that stop, not drive time.",
-    "Optional lat/lng must be approximate WGS84 for the USA when known.",
+    "Respect the driver's Home and Work anchors as real addresses.",
+    "Natural language like 'from office home for kids then explore' means must legs via those anchors, then leisure.",
+    "Use the injected range budget as FACT — do not invent a different Wh/mi or total range.",
+    "If planned driving would exceed the budget, include a Supercharger (role charge) or shorten explore legs.",
+    "Mark each stop role as must | explore | charge.",
+    "Respond with JSON only — no markdown — matching:",
+    '{"title":"string","summary":"string","stops":[{"name":"string","kind":"scenic|food|charge|activity|viewpoint|other|anchor","role":"must|explore|charge","reason":"string","approxMinutes":number,"approxDriveMiles":number,"lat":number?,"lng":number?}]}',
+    "Include 2–8 stops. approxDriveMiles is miles driven TO that stop from the previous point (0 for the start).",
+    "approxMinutes is time spent at the stop, not drive time.",
+    "Optional lat/lng must be approximate WGS84 in the USA when known.",
   ].join(" ");
+}
+
+function formatAnchor(
+  label: string,
+  address: string,
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+): string {
+  const coords =
+    lat != null && lng != null ? ` (${lat.toFixed(5)}, ${lng.toFixed(5)})` : "";
+  return `${label}: ${address}${coords}`;
+}
+
+export function resolveStartLabel(options: {
+  profile: OnboardingInput;
+  input: PlanRouteInput;
+}): string {
+  const { profile, input } = options;
+  if (input.startAnchor === "home") {
+    return formatAnchor("Start (home)", profile.homeAddress, profile.homeLat, profile.homeLng);
+  }
+  if (input.startAnchor === "work") {
+    return formatAnchor("Start (work)", profile.workAddress, profile.workLat, profile.workLng);
+  }
+  return formatAnchor(
+    "Start (other)",
+    input.startOtherText || "unspecified",
+    input.startOtherLat,
+    input.startOtherLng,
+  );
 }
 
 export function buildPlanUserPrompt(options: {
   profile: OnboardingInput;
-  requestPrompt: string;
-  availableHours: number;
-  batteryPercent: number;
+  input: PlanRouteInput;
+  range: RangeBudget;
   pastRoutes: PastRouteMemory[];
 }): string {
-  const { profile, requestPrompt, availableHours, batteryPercent, pastRoutes } =
-    options;
+  const { profile, input, range, pastRoutes } = options;
 
   const lines = [
-    `Home base: ${profile.homePlace}`,
+    formatAnchor("Home", profile.homeAddress, profile.homeLat, profile.homeLng),
+    formatAnchor("Work", profile.workAddress, profile.workLat, profile.workLng),
+    resolveStartLabel({ profile, input }),
     `Household: ${profile.household}`,
     `Interests: ${profile.interests}`,
     `Tesla: ${profile.teslaModel}`,
-    `Battery now: ${batteryPercent}%`,
-    `Available hours: ${availableHours}`,
-    `Request: ${requestPrompt}`,
+    `Battery now: ${input.batteryPercent}%`,
+    `Available hours: ${input.availableHours}`,
+    `RANGE BUDGET (FACT — use this): ${range.summary}`,
+    `Request: ${input.requestPrompt}`,
   ];
 
+  if (input.adjustNotes?.trim()) {
+    lines.push(`Adjust feedback: ${input.adjustNotes.trim()}`);
+  }
+
   if (pastRoutes.length === 0) {
-    lines.push("Past rated routes: none yet.");
+    lines.push("Past approved+rated routes: none yet.");
   } else {
-    lines.push("Past rated routes (newest first):");
+    lines.push("Past approved+rated routes (newest first):");
     for (const route of pastRoutes) {
       const impression = route.impressionNotes?.trim() || "—";
       const preference = route.preferenceNotes?.trim() || "—";

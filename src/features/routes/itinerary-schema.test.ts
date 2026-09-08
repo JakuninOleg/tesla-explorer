@@ -31,6 +31,7 @@ describe("itinerary schema", () => {
     });
 
     expect(parsed.stops).toHaveLength(2);
+    expect(parsed.stops[0]?.role).toBe("explore");
     expect(parsed.title).toContain("Gulf");
   });
 
@@ -56,8 +57,20 @@ describe("plan and rate input schemas", () => {
         requestPrompt: "Something chill near the water",
         availableHours: 3,
         batteryPercent: 55,
+        startAnchor: "home",
       }).availableHours,
     ).toBe(3);
+  });
+
+  it("requires other address when start is other", () => {
+    const result = planRouteInputSchema.safeParse({
+      requestPrompt: "Something chill near the water",
+      availableHours: 3,
+      batteryPercent: 55,
+      startAnchor: "other",
+      startOtherText: "",
+    });
+    expect(result.success).toBe(false);
   });
 
   it("validates rating payload", () => {

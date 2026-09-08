@@ -1,5 +1,6 @@
 import type { AdapterAccountType } from "@auth/core/adapters";
 import {
+  doublePrecision,
   integer,
   pgTable,
   primaryKey,
@@ -65,11 +66,15 @@ export const profiles = pgTable("profile", {
   userId: text("userId")
     .primaryKey()
     .references(() => users.id, { onDelete: "cascade" }),
-  homePlace: text("homePlace").notNull(),
+  homeAddress: text("homeAddress").notNull(),
+  homeLat: doublePrecision("homeLat"),
+  homeLng: doublePrecision("homeLng"),
+  workAddress: text("workAddress").notNull(),
+  workLat: doublePrecision("workLat"),
+  workLng: doublePrecision("workLng"),
   household: text("household").$type<"solo" | "family">().notNull(),
   interests: text("interests").notNull(),
   teslaModel: text("teslaModel").notNull(),
-  batteryPercent: integer("batteryPercent").notNull(),
   createdAt: timestamp("createdAt", { mode: "date" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -77,6 +82,9 @@ export const profiles = pgTable("profile", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+export type RouteStatus = "proposed" | "approved" | "declined";
+export type StartAnchor = "home" | "work" | "other";
 
 export const routes = pgTable("route", {
   id: text("id")
@@ -89,8 +97,16 @@ export const routes = pgTable("route", {
   requestPrompt: text("requestPrompt").notNull(),
   availableHours: integer("availableHours").notNull(),
   batteryPercent: integer("batteryPercent").notNull(),
+  startAnchor: text("startAnchor").$type<StartAnchor>().notNull(),
+  startOtherText: text("startOtherText"),
+  startOtherLat: doublePrecision("startOtherLat"),
+  startOtherLng: doublePrecision("startOtherLng"),
+  status: text("status").$type<RouteStatus>().notNull().default("proposed"),
   stopsJson: text("stopsJson").notNull(),
   summary: text("summary"),
+  adjustNotes: text("adjustNotes"),
+  rangeBudgetMiles: integer("rangeBudgetMiles"),
+  rangeWarning: text("rangeWarning"),
   rating: integer("rating"),
   impressionNotes: text("impressionNotes"),
   preferenceNotes: text("preferenceNotes"),

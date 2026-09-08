@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { AddressAutocomplete } from "@/features/geo/address-autocomplete";
 import {
   TESLA_MODELS,
   onboardingSchema,
@@ -13,7 +14,17 @@ import { useRouter } from "@/i18n/navigation";
 const fieldClass =
   "mt-2 w-full rounded-sm border border-border bg-muted px-3 py-3 text-sm text-foreground outline-none transition-colors focus:border-foreground/40";
 
-const labelClass = "text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase";
+const labelClass =
+  "text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase";
+
+function readCoord(value: FormDataEntryValue | null): number | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    return null;
+  }
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : null;
+}
 
 export function OnboardingForm({
   initialProfile,
@@ -35,11 +46,15 @@ export function OnboardingForm({
 
         const form = new FormData(event.currentTarget);
         const raw = {
-          homePlace: String(form.get("homePlace") ?? ""),
+          homeAddress: String(form.get("homeAddress") ?? ""),
+          homeLat: readCoord(form.get("homeLat")),
+          homeLng: readCoord(form.get("homeLng")),
+          workAddress: String(form.get("workAddress") ?? ""),
+          workLat: readCoord(form.get("workLat")),
+          workLng: readCoord(form.get("workLng")),
           household: String(form.get("household") ?? ""),
           interests: String(form.get("interests") ?? ""),
           teslaModel: String(form.get("teslaModel") ?? ""),
-          batteryPercent: form.get("batteryPercent"),
         };
 
         const parsed = onboardingSchema.safeParse(raw);
@@ -54,7 +69,9 @@ export function OnboardingForm({
           if (!result.ok) {
             setPending(false);
             setError(
-              result.error === "unauthorized" ? t("errorUnauthorized") : t("errorSave"),
+              result.error === "unauthorized"
+                ? t("errorUnauthorized")
+                : t("errorSave"),
             );
             return;
           }
@@ -64,18 +81,29 @@ export function OnboardingForm({
         })();
       }}
     >
-      <label className="block">
-        <span className={labelClass}>{t("homePlace")}</span>
-        <input
-          name="homePlace"
-          type="text"
-          required
-          autoComplete="address-level2"
-          defaultValue={initialProfile?.homePlace ?? ""}
-          placeholder={t("homePlacePlaceholder")}
-          className={fieldClass}
-        />
-      </label>
+      <AddressAutocomplete
+        label={t("homeAddress")}
+        namePrefix="home"
+        placeholder={t("homeAddressPlaceholder")}
+        searchUnavailableHint={t("addressSearchUnavailable")}
+        initial={{
+          address: initialProfile?.homeAddress ?? "",
+          lat: initialProfile?.homeLat ?? null,
+          lng: initialProfile?.homeLng ?? null,
+        }}
+      />
+
+      <AddressAutocomplete
+        label={t("workAddress")}
+        namePrefix="work"
+        placeholder={t("workAddressPlaceholder")}
+        searchUnavailableHint={t("addressSearchUnavailable")}
+        initial={{
+          address: initialProfile?.workAddress ?? "",
+          lat: initialProfile?.workLat ?? null,
+          lng: initialProfile?.workLng ?? null,
+        }}
+      />
 
       <fieldset>
         <legend className={labelClass}>{t("household")}</legend>
@@ -129,19 +157,6 @@ export function OnboardingForm({
             </option>
           ))}
         </select>
-      </label>
-
-      <label className="block">
-        <span className={labelClass}>{t("battery")}</span>
-        <input
-          name="batteryPercent"
-          type="number"
-          required
-          min={1}
-          max={100}
-          defaultValue={initialProfile?.batteryPercent ?? 60}
-          className={fieldClass}
-        />
       </label>
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}

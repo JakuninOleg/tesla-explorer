@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { RateRouteForm } from "@/features/routes/rate-route-form";
+import { RouteDecisionPanel } from "@/features/routes/route-decision-panel";
 import { getRouteForCurrentUser } from "@/features/routes/route-actions";
 import { Link, redirect } from "@/i18n/navigation";
 import { isLocale, routing } from "@/i18n/routing";
@@ -66,7 +67,10 @@ export default async function RouteDetailPage({
           >
             {t("back")}
           </Link>
-          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground">
+          <p className="mt-4 text-xs tracking-[0.14em] text-muted-foreground uppercase">
+            {t(`status.${detail.status}`)}
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
             {detail.title}
           </h1>
           {detail.summary ? (
@@ -80,7 +84,15 @@ export default async function RouteDetailPage({
               battery: detail.batteryPercent,
             })}
           </p>
-          <p className="mt-2 text-sm text-foreground/80">
+          {detail.rangeBudgetMiles != null ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {t("rangeBudget", { miles: detail.rangeBudgetMiles })}
+            </p>
+          ) : null}
+          {detail.rangeWarning ? (
+            <p className="mt-2 text-sm text-danger">{detail.rangeWarning}</p>
+          ) : null}
+          <p className="mt-4 text-sm text-foreground/80">
             <span className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
               {t("request")}
             </span>
@@ -99,7 +111,11 @@ export default async function RouteDetailPage({
                   {index + 1}. {stop.name}
                 </p>
                 <p className="mt-1 text-xs tracking-[0.12em] text-muted-foreground uppercase">
-                  {stop.kind} · {t("minutes", { count: stop.approxMinutes })}
+                  {stop.role} · {stop.kind} ·{" "}
+                  {t("minutes", { count: stop.approxMinutes })}
+                  {stop.approxDriveMiles != null
+                    ? ` · ${t("miles", { count: stop.approxDriveMiles })}`
+                    : null}
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   {stop.reason}
@@ -109,20 +125,43 @@ export default async function RouteDetailPage({
           </ol>
         </section>
 
-        <section>
-          <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-            {t("feedback")}
-          </h2>
-          <p className="mt-3 text-sm text-muted-foreground">{t("feedbackIntro")}</p>
-          <div className="mt-6">
-            <RateRouteForm
-              routeId={detail.id}
-              initialRating={detail.rating}
-              initialImpressionNotes={detail.impressionNotes}
-              initialPreferenceNotes={detail.preferenceNotes}
-            />
-          </div>
-        </section>
+        {detail.status === "proposed" ? (
+          <section>
+            <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+              {t("decision")}
+            </h2>
+            <p className="mt-3 text-sm text-muted-foreground">{t("decisionIntro")}</p>
+            <div className="mt-6">
+              <RouteDecisionPanel
+                routeId={detail.id}
+                requestPrompt={detail.requestPrompt}
+                availableHours={detail.availableHours}
+                batteryPercent={detail.batteryPercent}
+                startAnchor={detail.startAnchor}
+                startOtherText={detail.startOtherText}
+                startOtherLat={detail.startOtherLat}
+                startOtherLng={detail.startOtherLng}
+              />
+            </div>
+          </section>
+        ) : null}
+
+        {detail.status === "approved" ? (
+          <section>
+            <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+              {t("feedback")}
+            </h2>
+            <p className="mt-3 text-sm text-muted-foreground">{t("feedbackIntro")}</p>
+            <div className="mt-6">
+              <RateRouteForm
+                routeId={detail.id}
+                initialRating={detail.rating}
+                initialImpressionNotes={detail.impressionNotes}
+                initialPreferenceNotes={detail.preferenceNotes}
+              />
+            </div>
+          </section>
+        ) : null}
       </main>
     </div>
   );
