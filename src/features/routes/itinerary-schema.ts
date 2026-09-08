@@ -17,10 +17,11 @@ export const itineraryStopSchema = z.object({
   kind: stopKindSchema,
   role: stopRoleSchema.default("explore"),
   reason: z.string().trim().min(1).max(400),
-  approxMinutes: z.number().int().min(5).max(480),
-  approxDriveMiles: z.number().min(0).max(500).optional(),
-  lat: z.number().min(-90).max(90).optional(),
-  lng: z.number().min(-180).max(180).optional(),
+  /** 0 is valid for pass-through / return-home anchors (no dwell). */
+  approxMinutes: z.coerce.number().int().min(0).max(480),
+  approxDriveMiles: z.coerce.number().min(0).max(500).optional(),
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
 });
 
 export const itinerarySchema = z.object({
