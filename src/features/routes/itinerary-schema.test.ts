@@ -45,6 +45,38 @@ describe("itinerary schema", () => {
     expect(itinerary.stops[0]?.kind).toBe("scenic");
   });
 
+  it("accepts return-home stops with zero dwell minutes", () => {
+    const itinerary = parseItineraryResponse(
+      JSON.stringify({
+        title: "Kids food and park",
+        summary: "Short family loop ending at home.",
+        stops: [
+          {
+            name: "Pease Park",
+            kind: "activity",
+            role: "must",
+            reason: "Playground for preschoolers.",
+            approxMinutes: 65,
+            approxDriveMiles: 11,
+            lat: 30.2858,
+            lng: -97.7523,
+          },
+          {
+            name: "Home",
+            kind: "anchor",
+            role: "must",
+            reason: "Return home.",
+            approxMinutes: 0,
+            approxDriveMiles: 9,
+          },
+        ],
+      }),
+    );
+
+    expect(itinerary.stops.at(-1)?.approxMinutes).toBe(0);
+    expect(itinerary.stops.at(-1)?.kind).toBe("anchor");
+  });
+
   it("extractJsonObject rejects text without braces", () => {
     expect(() => extractJsonObject("no json here")).toThrow(/JSON object/);
   });
