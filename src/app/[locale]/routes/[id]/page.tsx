@@ -1,0 +1,129 @@
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import { auth } from "@/auth";
+import { LocaleSwitcher } from "@/components/locale-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { RateRouteForm } from "@/features/routes/rate-route-form";
+import { getRouteForCurrentUser } from "@/features/routes/route-actions";
+import { Link, redirect } from "@/i18n/navigation";
+import { isLocale, routing } from "@/i18n/routing";
+import { getServerTheme } from "@/lib/theme";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const route = await getRouteForCurrentUser(id);
+  return { title: route?.title ?? "Route" };
+}
+
+export default async function RouteDetailPage({
+  params,
+}: {
+  params: Promise<{ locale: string; id: string }>;
+}) {
+  const { locale: raw, id } = await params;
+  const locale = isLocale(raw) ? raw : routing.defaultLocale;
+  const session = await auth();
+
+  if (!session?.user) {
+    return redirect({ href: "/sign-in", locale });
+  }
+
+  const detail = await getRouteForCurrentUser(id);
+  if (!detail) {
+    return redirect({ href: "/dashboard", locale });
+  }
+
+  const [t, tHome, theme] = await Promise.all([
+    getTranslations("RouteDetail"),
+    getTranslations("Home"),
+    getServerTheme(),
+  ]);
+
+  return (
+    <div className="flex min-h-full flex-1 flex-col bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+      <header className="flex items-center justify-between gap-3 border-b border-border px-6 py-5 md:px-10">
+        <Link
+          href="/dashboard"
+          className="text-[0.7rem] font-semibold tracking-[0.28em] text-foreground uppercase"
+        >
+          {tHome("brand")}
+        </Link>
+        <div className="flex items-center gap-2">
+          <LocaleSwitcher />
+          <ThemeToggle currentTheme={theme} />
+        </div>
+      </header>
+
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-12 px-6 py-12 md:px-10">
+        <section>
+          <Link
+            href="/dashboard"
+            className="text-xs tracking-[0.16em] text-muted-foreground uppercase transition-colors hover:text-foreground"
+          >
+            {t("back")}
+          </Link>
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground">
+            {detail.title}
+          </h1>
+          {detail.summary ? (
+            <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+              {detail.summary}
+            </p>
+          ) : null}
+          <p className="mt-4 text-sm text-muted-foreground">
+            {t("meta", {
+              hours: detail.availableHours,
+              battery: detail.batteryPercent,
+            })}
+          </p>
+          <p className="mt-2 text-sm text-foreground/80">
+            <span className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+              {t("request")}
+            </span>
+            <span className="mt-1 block">{detail.requestPrompt}</span>
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+            {t("stops")}
+          </h2>
+          <ol className="mt-4 space-y-6">
+            {detail.stops.map((stop, index) => (
+              <li key={`${stop.name}-${index}`} className="border-l border-border pl-4">
+                <p className="text-sm font-medium text-foreground">
+                  {index + 1}. {stop.name}
+                </p>
+                <p className="mt-1 text-xs tracking-[0.12em] text-muted-foreground uppercase">
+                  {stop.kind} · {t("minutes", { count: stop.approxMinutes })}
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {stop.reason}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section>
+          <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+            {t("feedback")}
+          </h2>
+          <p className="mt-3 text-sm text-muted-foreground">{t("feedbackIntro")}</p>
+          <div className="mt-6">
+            <RateRouteForm
+              routeId={detail.id}
+              initialRating={detail.rating}
+              initialImpressionNotes={detail.impressionNotes}
+              initialPreferenceNotes={detail.preferenceNotes}
+            />
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}

@@ -4,16 +4,28 @@ import { auth } from "@/auth";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { SignOutButton } from "@/features/auth/sign-out-button";
-import { Link } from "@/i18n/navigation";
+import { getProfileForCurrentUser } from "@/features/profile/profile-actions";
+import { Link, redirect } from "@/i18n/navigation";
+import { isLocale, routing } from "@/i18n/routing";
 import { brand } from "@/lib/brand";
 import { getServerTheme } from "@/lib/theme";
 
-export default async function HomePage() {
+export default async function HomePage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale: raw } = await params;
+  const locale = isLocale(raw) ? raw : routing.defaultLocale;
   const t = await getTranslations("Home");
   const tAuth = await getTranslations("Auth");
   const theme = await getServerTheme();
   const session = await auth();
+
+  if (session?.user) {
+    const profile = await getProfileForCurrentUser();
+    redirect({ href: profile ? "/dashboard" : "/onboarding", locale });
+  }
 
   return (
     <div className="relative flex min-h-full flex-1 flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
@@ -44,27 +56,12 @@ export default async function HomePage() {
           <LocaleSwitcher />
           <ThemeToggle currentTheme={theme} />
           <PwaInstallButton />
-          {session?.user ? (
-            <>
-              <span className="hidden max-w-[10rem] truncate text-xs text-muted-foreground sm:inline">
-                {session.user.name ?? session.user.email}
-              </span>
-              <Link
-                href="/onboarding"
-                className="rounded-sm border border-border px-4 py-2 text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase transition-colors hover:border-foreground/40 hover:text-foreground"
-              >
-                {tAuth("profile")}
-              </Link>
-              <SignOutButton />
-            </>
-          ) : (
-            <Link
-              href="/sign-in"
-              className="rounded-sm border border-border px-4 py-2 text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase transition-colors hover:border-foreground/40 hover:text-foreground"
-            >
-              {tAuth("signIn")}
-            </Link>
-          )}
+          <Link
+            href="/sign-in"
+            className="rounded-sm border border-border px-4 py-2 text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase transition-colors hover:border-foreground/40 hover:text-foreground"
+          >
+            {tAuth("signIn")}
+          </Link>
         </div>
       </header>
 
@@ -79,7 +76,7 @@ export default async function HomePage() {
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
-                href={session?.user ? "/onboarding" : "/sign-in"}
+                href="/sign-in"
                 className="inline-flex h-12 min-h-11 items-center justify-center rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90"
               >
                 {t("cta")}

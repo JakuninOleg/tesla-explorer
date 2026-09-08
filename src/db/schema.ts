@@ -77,3 +77,27 @@ export const profiles = pgTable("profile", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+export const routes = pgTable("route", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  requestPrompt: text("requestPrompt").notNull(),
+  availableHours: integer("availableHours").notNull(),
+  batteryPercent: integer("batteryPercent").notNull(),
+  stopsJson: text("stopsJson").notNull(),
+  summary: text("summary"),
+  rating: integer("rating"),
+  impressionNotes: text("impressionNotes"),
+  preferenceNotes: text("preferenceNotes"),
+  createdAt: timestamp("createdAt", { mode: "date" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: timestamp("updatedAt", { mode: "date" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});

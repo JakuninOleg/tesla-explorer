@@ -24,7 +24,7 @@ export default async function SignInPage({
   const session = await auth();
 
   if (session?.user) {
-    redirect({ href: "/onboarding", locale });
+    redirect({ href: "/dashboard", locale });
   }
 
   const t = await getTranslations("Auth");

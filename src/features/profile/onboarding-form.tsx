@@ -59,7 +59,7 @@ export function OnboardingForm({
             return;
           }
           setPending(false);
-          router.push("/");
+          router.push("/dashboard");
           router.refresh();
         })();
       }}
