@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { fetchDrivingGeometry } from "@/features/map/fetch-directions";
+import { RouteCinema } from "@/features/map/route-cinema";
 import { stopsWithCoordinates } from "@/features/map/route-geometry";
-import { RouteMap } from "@/features/map/route-map";
 import type { ItineraryStop } from "@/features/routes/itinerary-schema";
 
 export async function RouteMapSection({ stops }: { stops: ItineraryStop[] }) {
@@ -17,12 +17,16 @@ export async function RouteMapSection({ stops }: { stops: ItineraryStop[] }) {
         {t("map")}
       </h2>
       <div className="mt-4">
-        <RouteMap
+        <RouteCinema
           stops={mapped}
           line={line}
           token={token}
           missingTokenLabel={t("mapMissingToken")}
           insufficientStopsLabel={t("mapNoCoordinates")}
+          playLabel={t("cinemaPlay")}
+          pauseLabel={t("cinemaPause")}
+          replayLabel={t("cinemaReplay")}
+          chargePulseLabel={t("cinemaCharging")}
         />
       </div>
     </section>
