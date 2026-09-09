@@ -152,7 +152,7 @@ export function RouteCinema({
     : null;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" data-testid="route-cinema">
       <div className="relative">
         <RouteMap
           stops={stops}
@@ -190,6 +190,7 @@ export function RouteCinema({
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
+            data-testid="route-cinema-play"
             className="inline-flex h-12 items-center justify-center rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90"
             onClick={() => {
               if (activeStopIndex != null) {

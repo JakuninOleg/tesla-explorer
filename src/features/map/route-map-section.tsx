@@ -1,7 +1,6 @@
 import { getTranslations } from "next-intl/server";
-import { fetchDrivingGeometry } from "@/features/map/fetch-directions";
+import { buildRouteStage } from "@/features/map/build-route-stage";
 import { RouteCinema } from "@/features/map/route-cinema";
-import { stopsWithCoordinates } from "@/features/map/route-geometry";
 import type { ItineraryStop } from "@/features/routes/itinerary-schema";
 
 export async function RouteMapSection({
@@ -12,10 +11,10 @@ export async function RouteMapSection({
   status?: "proposed" | "approved" | "declined";
 }) {
   const t = await getTranslations("RouteDetail");
-  const mapped = stopsWithCoordinates(stops);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim() || null;
-  const line =
-    mapped.length >= 2 ? await fetchDrivingGeometry(mapped) : null;
+  const stage = await buildRouteStage(stops, {
+    token: token ?? undefined,
+  });
   const cinematic = status === "approved" || status === "proposed";
 
   return (
@@ -31,8 +30,8 @@ export async function RouteMapSection({
       </h2>
       <div className={cinematic ? "mt-3" : "mt-4"}>
         <RouteCinema
-          stops={mapped}
-          line={line}
+          stops={stage.mapped}
+          line={stage.line}
           token={token}
           missingTokenLabel={t("mapMissingToken")}
           insufficientStopsLabel={t("mapNoCoordinates")}
