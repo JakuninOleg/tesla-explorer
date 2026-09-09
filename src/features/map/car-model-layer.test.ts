@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createEvCarGroup,
+  modelOrientationFromBearing,
   modelYawRadFromBearing,
 } from "@/features/map/car-model-layer";
 
@@ -10,10 +11,11 @@ describe("ev car mesh", () => {
     expect(car.children.length).toBeGreaterThanOrEqual(14);
   });
 
-  it("yaws so bearing 0 faces north (not sideways east)", () => {
-    // At heading 0, offset -90° ⇒ −π/2 (nose north after Mapbox Rx).
-    expect(modelYawRadFromBearing(0)).toBeCloseTo(-Math.PI / 2, 6);
-    // Heading east (90°) ⇒ yaw −π (or π) after offset.
-    expect(modelYawRadFromBearing(90)).toBeCloseTo(-Math.PI, 6);
+  it("puts bearing on rotateY (yaw), not rotateZ (roll/roof)", () => {
+    const east = modelOrientationFromBearing(90);
+    expect(east.rotateX).toBeCloseTo(Math.PI / 2, 6);
+    expect(east.rotateZ).toBe(0);
+    expect(east.rotateY).toBeCloseTo(-Math.PI / 2, 6);
+    expect(modelYawRadFromBearing(0)).toBeCloseTo(0, 6);
   });
 });
