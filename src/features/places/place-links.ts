@@ -36,8 +36,8 @@ export function buildPlaceContextLinks(
 }
 
 /**
- * Cinema overlay media. Prefer a concrete video id (planner or /api/places/youtube).
- * Without an id there is no reliable iframe embed (search embeds were removed by YouTube).
+ * Cinema overlay media — embed Shorts/video by id.
+ * Without an id, watchUrl is a locality + #shorts search (search embeds were removed by YouTube).
  */
 export function buildYoutubeEmbedUrl(options: {
   videoId?: string | null;
@@ -46,15 +46,16 @@ export function buildYoutubeEmbedUrl(options: {
 }): { embedUrl: string | null; watchUrl: string } {
   const searchQuery = `${options.placeName}${
     options.cityHint ? ` ${options.cityHint}` : ""
-  } visit review`;
+  } #shorts`;
   const watchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
     searchQuery,
   )}`;
   const id = options.videoId?.trim();
   if (id && /^[a-zA-Z0-9_-]{6,20}$/.test(id)) {
     return {
-      embedUrl: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&modestbranding=1`,
-      watchUrl: `https://www.youtube.com/watch?v=${id}`,
+      // Standard embed works for Shorts; mute=0 so the place reel can play with sound after user gesture.
+      embedUrl: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&modestbranding=1&playsinline=1`,
+      watchUrl: `https://www.youtube.com/shorts/${id}`,
     };
   }
   return { embedUrl: null, watchUrl };

@@ -1,7 +1,7 @@
 /**
- * Resolve a place name to a YouTube video id for in-app embed.
- * Prefers YOUTUBE_API_KEY (Data API v3) with optional lat/lng location bias;
- * falls back to YouTube InnerTube guest search with a locality-qualified query.
+ * Resolve a place name to a YouTube Short id for in-app embed.
+ * Prefers YOUTUBE_API_KEY (Data API v3) with location bias + short duration;
+ * falls back to InnerTube guest search with a locality + #shorts query.
  */
 
 const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{6,20}$/;
@@ -10,7 +10,7 @@ export function isYoutubeVideoId(value: string): boolean {
   return VIDEO_ID_RE.test(value);
 }
 
-/** Build a geo-qualified search string so "Asia Cafe" ≠ Ohio when the stop is in Austin. */
+/** Geo-qualified Shorts search — "Asia Cafe" alone must not resolve to another state. */
 export function buildLocalYoutubeSearchQuery(options: {
   placeName: string;
   locality?: string | null;
@@ -28,10 +28,10 @@ export function buildLocalYoutubeSearchQuery(options: {
     Number.isFinite(options.lat) &&
     Number.isFinite(options.lng)
   ) {
-    // Coarse pin when reverse-geocode is unavailable
     parts.push(`${options.lat.toFixed(2)},${options.lng.toFixed(2)}`);
   }
-  parts.push("food review");
+  // Prefer vertical Shorts over long form travel vlogs.
+  parts.push("#shorts");
   return parts.join(" ").slice(0, 120);
 }
 
@@ -46,7 +46,44 @@ export type ResolveYoutubeOptions = {
   lng?: number | null;
   /** Radius for Data API location filter, e.g. "40km". */
   locationRadius?: string;
+  /** Prefer Shorts / sub-4-minute clips (default true). */
+  preferShorts?: boolean;
 };
+
+function firstVideoId(body: DataApiSearch): string | null {
+  for (const item of body.items ?? []) {
+    const id = item.id?.videoId;
+    if (id && isYoutubeVideoId(id)) {
+      return id;
+    }
+  }
+  return null;
+}
+
+async function searchDataApi(
+  apiKey: string,
+  query: string,
+  fetchImpl: typeof fetch,
+  extras: Record<string, string>,
+): Promise<string | null> {
+  const url = new URL("https://www.googleapis.com/youtube/v3/search");
+  url.searchParams.set("part", "snippet");
+  url.searchParams.set("type", "video");
+  url.searchParams.set("maxResults", "8");
+  url.searchParams.set("q", query);
+  url.searchParams.set("key", apiKey);
+  url.searchParams.set("safeSearch", "moderate");
+  url.searchParams.set("order", "relevance");
+  for (const [key, value] of Object.entries(extras)) {
+    url.searchParams.set(key, value);
+  }
+  const res = await fetchImpl(url.toString());
+  if (!res.ok) {
+    return null;
+  }
+  const body = (await res.json()) as DataApiSearch;
+  return firstVideoId(body);
+}
 
 export async function resolveYoutubeVideoId(
   query: string,
@@ -58,6 +95,7 @@ export async function resolveYoutubeVideoId(
   }
 
   const fetchImpl = options?.fetchImpl ?? fetch;
+  const preferShorts = options?.preferShorts !== false;
   const apiKey = process.env.YOUTUBE_API_KEY?.trim();
   const lat = options?.lat;
   const lng = options?.lng;
@@ -67,32 +105,41 @@ export async function resolveYoutubeVideoId(
     Number.isFinite(lat) &&
     Number.isFinite(lng);
 
+  const locationExtras: Record<string, string> = hasLocation
+    ? {
+        location: `${lat},${lng}`,
+        locationRadius: options?.locationRadius ?? "50km",
+      }
+    : {};
+
   if (apiKey) {
-    const url = new URL("https://www.googleapis.com/youtube/v3/search");
-    url.searchParams.set("part", "snippet");
-    url.searchParams.set("type", "video");
-    url.searchParams.set("maxResults", "5");
-    url.searchParams.set("q", q);
-    url.searchParams.set("key", apiKey);
-    url.searchParams.set("safeSearch", "moderate");
-    if (hasLocation) {
-      url.searchParams.set("location", `${lat},${lng}`);
-      url.searchParams.set(
-        "locationRadius",
-        options?.locationRadius ?? "50km",
-      );
-      url.searchParams.set("order", "relevance");
-    }
     try {
-      const res = await fetchImpl(url.toString());
-      if (res.ok) {
-        const body = (await res.json()) as DataApiSearch;
-        for (const item of body.items ?? []) {
-          const id = item.id?.videoId;
-          if (id && isYoutubeVideoId(id)) {
-            return id;
-          }
+      // 1) Local Shorts / short clips
+      if (preferShorts) {
+        const shortLocal = await searchDataApi(apiKey, q, fetchImpl, {
+          ...locationExtras,
+          videoDuration: "short",
+        });
+        if (shortLocal) {
+          return shortLocal;
         }
+        // 2) Shorts without geo (still #shorts in query)
+        const shortAny = await searchDataApi(apiKey, q, fetchImpl, {
+          videoDuration: "short",
+        });
+        if (shortAny) {
+          return shortAny;
+        }
+      }
+      // 3) Any local video
+      const local = await searchDataApi(apiKey, q, fetchImpl, locationExtras);
+      if (local) {
+        return local;
+      }
+      // 4) Any video for the query
+      const any = await searchDataApi(apiKey, q, fetchImpl, {});
+      if (any) {
+        return any;
       }
     } catch {
       // fall through to InnerTube
@@ -120,12 +167,23 @@ function collectVideoIds(node: unknown, out: string[], depth = 0): void {
   }
   const record = node as Record<string, unknown>;
 
-  // Prefer ranked search hits (videoRenderer), not sidebar/prefetch ids.
   const renderer = record.videoRenderer;
   if (renderer && typeof renderer === "object") {
     const id = (renderer as { videoId?: unknown }).videoId;
     if (typeof id === "string" && isYoutubeVideoId(id) && !out.includes(id)) {
       out.push(id);
+    }
+  }
+
+  // Shorts shelf / reel renderers
+  const shorts = record.reelItemRenderer ?? record.shortsLockupViewModel;
+  if (shorts && typeof shorts === "object") {
+    const nested: string[] = [];
+    collectVideoIds(shorts, nested, depth + 1);
+    for (const id of nested) {
+      if (!out.includes(id)) {
+        out.push(id);
+      }
     }
   }
 
