@@ -166,7 +166,8 @@ export function RouteCinema({
           <StopMediaOverlay
             title={activeStop.name}
             description={activeItinerary?.reason ?? null}
-            videoId={activeItinerary?.youtubeVideoId}
+            lat={activeItinerary?.lat ?? activeStop.lngLat[1]}
+            lng={activeItinerary?.lng ?? activeStop.lngLat[0]}
             continueLabel={continueLabel}
             watchPlaceLabel={watchPlaceLabel}
             openYoutubeLabel={openYoutubeLabel}
