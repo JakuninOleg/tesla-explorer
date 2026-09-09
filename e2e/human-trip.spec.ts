@@ -53,6 +53,7 @@ test.describe("human trip in the browser", () => {
       timeout: 60_000,
     });
     await expect(map).toHaveAttribute("data-car-layer", "true");
+    await expect(map).toHaveAttribute("data-car-marker", "true");
     await expect(map).toHaveAttribute("data-stop-markers", /[1-9]/);
 
     const canvas = map.locator("canvas.mapboxgl-canvas");
@@ -62,9 +63,13 @@ test.describe("human trip in the browser", () => {
     expect(box!.width).toBeGreaterThan(200);
     expect(box!.height).toBeGreaterThan(200);
 
+    const carMarker = page.getByTestId("route-car-marker");
+    await expect(carMarker).toBeVisible();
+
     await expect(page.getByTestId("route-cinema-play")).toBeVisible();
     await page.getByTestId("route-cinema-play").click();
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2000);
+    await expect(carMarker).toBeVisible();
     await expect(canvas).toBeVisible();
   });
 });

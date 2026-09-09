@@ -4,8 +4,10 @@ import type { LineString } from "geojson";
 import mapboxgl from "mapbox-gl";
 import { useEffect, useRef } from "react";
 import {
+  createCarDomMarker,
   createCarModelLayer,
   removeCarModelLayer,
+  setCarDomMarkerHeading,
   type CarModelPose,
 } from "@/features/map/car-model-layer";
 import {
@@ -15,10 +17,7 @@ import {
   type LngLat,
   type MappedStop,
 } from "@/features/map/route-geometry";
-import {
-  CINEMA_FOLLOW,
-  chaseCameraPlacement,
-} from "@/features/map/cinema-playback";
+import { CINEMA_FOLLOW } from "@/features/map/cinema-playback";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 export type RouteMapProps = {
@@ -32,38 +31,16 @@ export type RouteMapProps = {
   cinematic?: boolean;
 };
 
-/** Third-person chase via Mapbox FreeCamera (game-like), with jumpTo fallback. */
 function applyChaseCamera(
   map: mapboxgl.Map,
   pose: { lngLat: LngLat; headingDeg: number },
 ) {
-  try {
-    const placement = chaseCameraPlacement(pose);
-    const camera = map.getFreeCameraOptions();
-    camera.position = mapboxgl.MercatorCoordinate.fromLngLat(
-      {
-        lng: placement.position.lng,
-        lat: placement.position.lat,
-      },
-      placement.position.altitude,
-    );
-    camera.lookAtPoint(
-      {
-        lng: placement.lookAt.lng,
-        lat: placement.lookAt.lat,
-      },
-      undefined,
-      placement.lookAt.altitude,
-    );
-    map.setFreeCameraOptions(camera);
-  } catch {
-    map.jumpTo({
-      center: cameraFollowTarget(pose, CINEMA_FOLLOW.behindMeters),
-      zoom: CINEMA_FOLLOW.zoom,
-      pitch: CINEMA_FOLLOW.pitch,
-      bearing: pose.headingDeg,
-    });
-  }
+  map.jumpTo({
+    center: cameraFollowTarget(pose, CINEMA_FOLLOW.behindMeters),
+    zoom: CINEMA_FOLLOW.zoom,
+    pitch: CINEMA_FOLLOW.pitch,
+    bearing: pose.headingDeg,
+  });
 }
 
 function add3dBuildings(map: mapboxgl.Map) {
@@ -136,6 +113,7 @@ export function RouteMap({
   const carLayerRef = useRef<ReturnType<typeof createCarModelLayer> | null>(
     null,
   );
+  const carMarkerRef = useRef<mapboxgl.Marker | null>(null);
 
   useEffect(() => {
     if (!token || !containerRef.current || stops.length === 0) {
@@ -154,7 +132,7 @@ export function RouteMap({
       attributionControl: true,
       ...(cinematic
         ? {
-            minZoom: 17.5,
+            minZoom: 16.5,
             maxPitch: 80,
             dragRotate: true,
             pitchWithRotate: true,
@@ -162,7 +140,6 @@ export function RouteMap({
         : {}),
     });
     if (cinematic) {
-      // Keep chase locked — accidental scroll-out kills the game feel.
       map.scrollZoom.disable();
       map.dragPan.disable();
       map.touchPitch.disable();
@@ -250,6 +227,19 @@ export function RouteMap({
         map.addLayer(carLayer);
         carReady = Boolean(map.getLayer(carLayer.id));
 
+        const carEl = createCarDomMarker();
+        const carMarker = new mapboxgl.Marker({
+          element: carEl,
+          rotationAlignment: "map",
+          pitchAlignment: "map",
+        });
+        if (startPose) {
+          carMarker.setLngLat(startPose.lngLat);
+          setCarDomMarkerHeading(carEl, startPose.headingDeg);
+        }
+        carMarker.addTo(map);
+        carMarkerRef.current = carMarker;
+
         if (!cinematic) {
           const bounds = boundsFromCoordinates(coords);
           if (bounds) {
@@ -274,6 +264,7 @@ export function RouteMap({
       if (root) {
         root.dataset.mapReady = "true";
         root.dataset.carLayer = carReady ? "true" : "false";
+        root.dataset.carMarker = carMarkerRef.current ? "true" : "false";
         root.dataset.stopMarkers = String(markers.length);
       }
     });
@@ -283,6 +274,8 @@ export function RouteMap({
       for (const marker of markers) {
         marker.remove();
       }
+      carMarkerRef.current?.remove();
+      carMarkerRef.current = null;
       if (carLayerRef.current) {
         removeCarModelLayer(map);
         carLayerRef.current = null;
@@ -295,12 +288,12 @@ export function RouteMap({
   useEffect(() => {
     const map = mapRef.current;
     const carLayer = carLayerRef.current;
+    const carMarker = carMarkerRef.current;
     const coordinates = line?.coordinates as LngLat[] | undefined;
     if (!map || !coordinates || coordinates.length < 2) {
       return;
     }
 
-    // Keep the car on-screen at rest (progress null = start of route).
     const progress = playProgress ?? 0;
     const pose = poseAlongLine(coordinates, progress);
     if (!pose) {
@@ -313,17 +306,14 @@ export function RouteMap({
     };
     carLayer?.setPose(carPose);
 
+    if (carMarker) {
+      carMarker.setLngLat(pose.lngLat);
+      const el = carMarker.getElement() as HTMLDivElement;
+      setCarDomMarkerHeading(el, pose.headingDeg);
+    }
+
     if (cinematic || playProgress != null) {
-      if (cinematic) {
-        applyChaseCamera(map, pose);
-      } else {
-        map.jumpTo({
-          center: cameraFollowTarget(pose, 40),
-          zoom: 15.6,
-          pitch: 58,
-          bearing: pose.headingDeg,
-        });
-      }
+      applyChaseCamera(map, pose);
     }
   }, [playProgress, line, cinematic]);
 
