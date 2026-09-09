@@ -5,7 +5,16 @@ import type { LngLat } from "@/features/map/route-geometry";
 const LAYER_ID = "tesla-explorer-ev-car";
 
 /** Visual scale in meters — large enough to read at chase-cam zoom. */
-export const CAR_METERS_SCALE = 3.4;
+export const CAR_METERS_SCALE = 4.2;
+
+/**
+ * Mapbox custom-layer yaw after Rx(π/2).
+ * Our mesh noses +Z; at yaw 0 that reads as east on the map — subtract 90° so
+ * bearing 0° (north) points the nose north, not sideways down the road.
+ */
+export function modelYawRadFromBearing(headingDeg: number): number {
+  return (((-headingDeg - 90) % 360) * Math.PI) / 180;
+}
 
 export type CarModelPose = {
   lngLat: LngLat;
@@ -169,9 +178,10 @@ type Transform = {
 };
 
 function transformFromPose(pose: CarModelPose): Transform {
+  // Slight altitude so the mesh sits above the road surface.
   const merc = mapboxgl.MercatorCoordinate.fromLngLat(
     { lng: pose.lngLat[0], lat: pose.lngLat[1] },
-    0,
+    0.8,
   );
   return {
     translateX: merc.x,
@@ -179,8 +189,7 @@ function transformFromPose(pose: CarModelPose): Transform {
     translateZ: merc.z ?? 0,
     rotateX: Math.PI / 2,
     rotateY: 0,
-    // Mapbox bearing clockwise from north; model +Z forward after rotateX.
-    rotateZ: (-pose.headingDeg * Math.PI) / 180,
+    rotateZ: modelYawRadFromBearing(pose.headingDeg),
     scale: merc.meterInMercatorCoordinateUnits() * CAR_METERS_SCALE,
   };
 }

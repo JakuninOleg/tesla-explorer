@@ -115,9 +115,27 @@ export function RouteMap({
       bearing: 0,
       antialias: true,
       attributionControl: true,
+      ...(cinematic
+        ? {
+            minZoom: 17.5,
+            maxPitch: 80,
+            dragRotate: true,
+            pitchWithRotate: true,
+          }
+        : {}),
     });
+    if (cinematic) {
+      // Keep chase locked — accidental scroll-out kills the game feel.
+      map.scrollZoom.disable();
+      map.dragPan.disable();
+      map.touchPitch.disable();
+    }
     map.addControl(
-      new mapboxgl.NavigationControl({ showCompass: true, visualizePitch: true }),
+      new mapboxgl.NavigationControl({
+        showCompass: true,
+        visualizePitch: true,
+        showZoom: !cinematic,
+      }),
       "top-right",
     );
     mapRef.current = map;
