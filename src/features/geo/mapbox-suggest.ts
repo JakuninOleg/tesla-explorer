@@ -65,3 +65,70 @@ export async function suggestAddresses(
     })
     .filter((item): item is MapboxSuggestResult => item != null);
 }
+
+type MapboxContext = { id?: string; text?: string; short_code?: string };
+
+type MapboxReverseFeature = MapboxFeature & {
+  text?: string;
+  context?: MapboxContext[];
+  place_type?: string[];
+};
+
+type MapboxReverseResponse = {
+  features?: MapboxReverseFeature[];
+};
+
+/**
+ * City + region for YouTube search bias, e.g. "Austin Texas".
+ * Uses Mapbox reverse geocode (place / locality + region).
+ */
+export async function reverseGeocodeLocality(
+  lat: number,
+  lng: number,
+  options?: { fetchImpl?: typeof fetch },
+): Promise<string | null> {
+  const token = getMapboxToken();
+  if (!token || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  const fetchImpl = options?.fetchImpl ?? fetch;
+  const url = new URL(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json`,
+  );
+  url.searchParams.set("access_token", token);
+  url.searchParams.set("types", "place,locality,neighborhood");
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("language", "en");
+
+  try {
+    const response = await fetchImpl(url.toString());
+    if (!response.ok) {
+      return null;
+    }
+    const body = (await response.json()) as MapboxReverseResponse;
+    const feature = body.features?.[0];
+    if (!feature) {
+      return null;
+    }
+
+    const place =
+      feature.text?.trim() ||
+      feature.place_name?.split(",")[0]?.trim() ||
+      null;
+    const region = feature.context?.find((c) =>
+      (c.id ?? "").startsWith("region"),
+    );
+    const regionName =
+      region?.text?.trim() ||
+      region?.short_code?.replace(/^US-/, "").trim() ||
+      null;
+
+    if (place && regionName) {
+      return `${place} ${regionName}`;
+    }
+    return place;
+  } catch {
+    return null;
+  }
+}

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { suggestAddresses } from "@/features/geo/mapbox-suggest";
+import {
+  reverseGeocodeLocality,
+  suggestAddresses,
+} from "@/features/geo/mapbox-suggest";
 
 describe("mapbox suggest", () => {
   it("returns empty without token or short query", async () => {
@@ -33,5 +36,29 @@ describe("mapbox suggest", () => {
       },
     ]);
     expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+});
+
+describe("reverseGeocodeLocality", () => {
+  it("builds city + region for YouTube locality bias", async () => {
+    process.env.NEXT_PUBLIC_MAPBOX_TOKEN = "test-token";
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      expect(String(input)).toContain("-97.726,30.402");
+      expect(String(input)).toContain("types=place");
+      return Response.json({
+        features: [
+          {
+            text: "Austin",
+            place_name: "Austin, Texas, United States",
+            context: [{ id: "region.1", text: "Texas", short_code: "US-TX" }],
+          },
+        ],
+      });
+    });
+
+    const locality = await reverseGeocodeLocality(30.402, -97.726, {
+      fetchImpl,
+    });
+    expect(locality).toBe("Austin Texas");
   });
 });

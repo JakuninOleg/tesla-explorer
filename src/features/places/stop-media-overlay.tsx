@@ -6,7 +6,8 @@ import { buildYoutubeEmbedUrl } from "@/features/places/place-links";
 export function StopMediaOverlay({
   title,
   description,
-  videoId: initialVideoId,
+  lat,
+  lng,
   continueLabel,
   watchPlaceLabel,
   openYoutubeLabel,
@@ -14,44 +15,47 @@ export function StopMediaOverlay({
 }: {
   title: string;
   description?: string | null;
-  videoId?: string | null;
+  /** Prefer resolving a local video from coords — planner youtube ids are often wrong. */
+  lat?: number | null;
+  lng?: number | null;
   continueLabel: string;
   watchPlaceLabel: string;
   openYoutubeLabel: string;
   onContinue: () => void;
 }) {
-  const [videoId, setVideoId] = useState<string | null>(
-    initialVideoId?.trim() || null,
-  );
-  const [resolving, setResolving] = useState(!initialVideoId);
+  const [videoId, setVideoId] = useState<string | null>(null);
+  const [locality, setLocality] = useState<string | null>(null);
+  const [resolving, setResolving] = useState(true);
 
   useEffect(() => {
-    if (initialVideoId?.trim()) {
-      const timer = window.setTimeout(() => {
-        setVideoId(initialVideoId.trim());
-        setResolving(false);
-      }, 0);
-      return () => window.clearTimeout(timer);
-    }
-
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       setResolving(true);
       void (async () => {
         try {
-          const res = await fetch(
-            `/api/places/youtube?q=${encodeURIComponent(`${title} review`)}`,
-            { signal: controller.signal },
-          );
+          const params = new URLSearchParams({ q: title });
+          if (typeof lat === "number" && typeof lng === "number") {
+            params.set("lat", String(lat));
+            params.set("lng", String(lng));
+          }
+          const res = await fetch(`/api/places/youtube?${params.toString()}`, {
+            signal: controller.signal,
+          });
           if (!res.ok) {
             setVideoId(null);
+            setLocality(null);
             return;
           }
-          const body = (await res.json()) as { videoId?: string | null };
+          const body = (await res.json()) as {
+            videoId?: string | null;
+            locality?: string | null;
+          };
           setVideoId(body.videoId?.trim() || null);
+          setLocality(body.locality?.trim() || null);
         } catch {
           if (!controller.signal.aborted) {
             setVideoId(null);
+            setLocality(null);
           }
         } finally {
           if (!controller.signal.aborted) {
@@ -65,10 +69,11 @@ export function StopMediaOverlay({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [initialVideoId, title]);
+  }, [title, lat, lng]);
 
   const media = buildYoutubeEmbedUrl({
     placeName: title,
+    cityHint: locality ?? undefined,
     videoId,
   });
 
@@ -85,6 +90,9 @@ export function StopMediaOverlay({
           <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
             {title}
           </h3>
+          {locality ? (
+            <p className="mt-1 text-sm text-muted-foreground">{locality}</p>
+          ) : null}
           {description ? (
             <p
               className="mt-2 text-base leading-relaxed text-muted-foreground"
