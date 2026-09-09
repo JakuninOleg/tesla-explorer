@@ -6,14 +6,14 @@ import {
 } from "@/features/places/resolve-youtube";
 
 describe("buildLocalYoutubeSearchQuery", () => {
-  it("includes locality so generic names stay local", () => {
+  it("includes locality so generic names stay local and prefers Shorts", () => {
     const q = buildLocalYoutubeSearchQuery({
       placeName: "Asia Cafe",
       locality: "Austin Texas",
     });
     expect(q).toContain("Asia Cafe");
     expect(q).toContain("Austin Texas");
-    expect(q.toLowerCase()).toContain("review");
+    expect(q.toLowerCase()).toContain("#shorts");
     expect(q).not.toMatch(/Ohio/i);
   });
 
@@ -25,6 +25,7 @@ describe("buildLocalYoutubeSearchQuery", () => {
     });
     expect(q).toContain("30.40");
     expect(q).toContain("-97.73");
+    expect(q).toContain("#shorts");
   });
 });
 
@@ -34,15 +35,18 @@ describe("resolveYoutubeVideoId", () => {
     expect(isYoutubeVideoId("bad")).toBe(false);
   });
 
-  it("passes location bias to YouTube Data API when key + coords provided", async () => {
+  it("passes location bias and short duration to YouTube Data API", async () => {
     process.env.YOUTUBE_API_KEY = "test-key";
+    let calls = 0;
     const fetchImpl: typeof fetch = async (input) => {
+      calls += 1;
       const url = String(input);
       expect(url).toContain("googleapis.com/youtube/v3/search");
       expect(url).toContain("Asia");
       expect(url).toContain("location=");
       expect(url).toContain("30.4");
       expect(url).toContain("locationRadius=50km");
+      expect(url).toContain("videoDuration=short");
       return new Response(
         JSON.stringify({
           items: [{ id: { videoId: "dQw4w9WgXcQ" } }],
@@ -50,12 +54,16 @@ describe("resolveYoutubeVideoId", () => {
         { status: 200 },
       );
     };
-    const id = await resolveYoutubeVideoId("Asia Cafe Austin Texas food review", {
-      fetchImpl,
-      lat: 30.4,
-      lng: -97.7,
-    });
+    const id = await resolveYoutubeVideoId(
+      "Asia Cafe Austin Texas #shorts",
+      {
+        fetchImpl,
+        lat: 30.4,
+        lng: -97.7,
+      },
+    );
     expect(id).toBe("dQw4w9WgXcQ");
+    expect(calls).toBe(1);
     delete process.env.YOUTUBE_API_KEY;
   });
 
@@ -91,7 +99,7 @@ describe("resolveYoutubeVideoId", () => {
         { status: 200 },
       );
     };
-    const id = await resolveYoutubeVideoId("Asia Cafe Austin Texas food review", {
+    const id = await resolveYoutubeVideoId("Asia Cafe Austin Texas #shorts", {
       fetchImpl,
     });
     expect(id).toBe("AbCdEfGhIjK");
