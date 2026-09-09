@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildChatSystemPrompt,
+  buildForceItinerarySystemPrompt,
   buildPlanSystemPrompt,
   buildPlanUserPrompt,
+  shouldForceItineraryJson,
 } from "@/features/routes/plan-prompt";
 import { estimateRangeMiles } from "@/features/routes/tesla-range";
 
@@ -53,5 +56,18 @@ describe("plan prompt builder", () => {
     expect(prompt).toContain("RANGE BUDGET (FACT");
     expect(prompt).toContain("Avoid loud malls");
     expect(buildPlanSystemPrompt()).toMatch(/do not invent a different/i);
+    expect(buildChatSystemPrompt()).toMatch(/JSON ONLY/i);
+    expect(buildForceItinerarySystemPrompt()).toMatch(/JSON only/i);
+  });
+});
+
+describe("shouldForceItineraryJson", () => {
+  it("detects prose route drafts that need a JSON conversion pass", () => {
+    expect(
+      shouldForceItineraryJson(
+        "Отличный план: китайский ресторан Fat Dragon, потом парк у озера Brushy Creek Lake Park около Domain.",
+      ),
+    ).toBe(true);
+    expect(shouldForceItineraryJson("Сколько часов свободно?")).toBe(false);
   });
 });

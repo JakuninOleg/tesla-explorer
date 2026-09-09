@@ -151,7 +151,12 @@ export function PlanChat({
 
               setMessages((prev) => [
                 ...prev,
-                { role: "assistant", content: result.reply },
+                {
+                  role: "assistant",
+                  content: result.routeId
+                    ? `${result.reply}\n\n→ ${t("chatOpenMap")}`
+                    : result.reply,
+                },
               ]);
 
               if (result.routeId) {

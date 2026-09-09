@@ -35,15 +35,39 @@ export function buildChatSystemPrompt(): string {
   return [
     "You are the driver's personal leisure-route co-pilot inside Tesla Explorer.",
     "You already know their home, work, Tesla model, household, kids, and about-me notes from context.",
-    "Speak like a sharp friend who plans unforgettable short drives in the USA — warm, concrete, concise.",
-    "Ask at most ONE clarifying question when battery %, free hours, or start (home/work/other) is still unclear.",
-    "When you have enough to plan, respond with JSON ONLY (no markdown fences) matching:",
-    '{"title":"string","summary":"string","stops":[{"name":"string","kind":"scenic|food|charge|activity|viewpoint|other|anchor","role":"must|explore|charge","reason":"string","approxMinutes":number,"approxDriveMiles":number,"lat":number?,"lng":number?,"youtubeVideoId":"optional public id"}]}',
-    "Include real-ish lat/lng for each stop so the 3D map cinema works. 2–8 stops.",
-    "When you know a real public YouTube video id for a food/activity stop, set youtubeVideoId (11-ish chars).",
-    "approxMinutes may be 0 for return-home anchors. Prefer food/activity/scenic that fit kids when kidsCount > 0.",
-    "Use the RANGE BUDGET as FACT. Never invent different Wh/mi.",
+    "Hours available, battery %, and start anchor are provided in DRIVER CONTEXT — never ask for them again.",
+    "Speak briefly. Do NOT write long prose itineraries in chat.",
+    "As soon as the driver states what they want (food, kids, water, vibe, etc.), respond with itinerary JSON ONLY — no markdown fences, no intro text.",
+    "JSON shape:",
+    '{"title":"string","summary":"string","stops":[{"name":"string","kind":"scenic|food|charge|activity|viewpoint|other|anchor","role":"must|explore|charge","reason":"string","approxMinutes":number,"approxDriveMiles":number,"lat":number,"lng":number,"youtubeVideoId":"optional"}]}',
+    "Include 2–8 stops with real-ish USA lat/lng so the 3D map cinema works.",
+    "Prefer food/activity near water when requested; fit kids when kidsCount > 0.",
+    "approxMinutes may be 0 for return-home anchors. Use RANGE BUDGET as FACT.",
+    "Only ask ONE short clarifying question if the request is empty or completely impossible — otherwise always JSON.",
   ].join(" ");
+}
+
+export function buildForceItinerarySystemPrompt(): string {
+  return [
+    "Convert the conversation into ONE itinerary JSON object now.",
+    "No prose. No markdown. JSON only, matching:",
+    '{"title":"string","summary":"string","stops":[{"name":"string","kind":"scenic|food|charge|activity|viewpoint|other|anchor","role":"must|explore|charge","reason":"string","approxMinutes":number,"approxDriveMiles":number,"lat":number,"lng":number}]}',
+    "2–8 stops with USA lat/lng. Use DRIVER CONTEXT start/home/work and RANGE BUDGET.",
+  ].join(" ");
+}
+
+/** Prose that looks like a finished plan — force a JSON conversion pass. */
+export function shouldForceItineraryJson(content: string): boolean {
+  const text = content.trim();
+  if (text.length < 80) {
+    return false;
+  }
+  if (/^\s*\{/.test(text) || text.includes('"stops"')) {
+    return true;
+  }
+  const planSignals =
+    /(stop|restaurant|park|lake|route|маршрут|ресторан|парк|озеро|стопы|минуты|мил)/i;
+  return planSignals.test(text);
 }
 
 function formatAnchor(
