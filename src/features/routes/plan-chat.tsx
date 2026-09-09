@@ -124,40 +124,43 @@ export function PlanChat({
           setDraft("");
 
           void (async () => {
-            const result = await chatPlanAction({
-              messages: nextMessages.filter(
-                (m, i) => !(i === 0 && m.role === "assistant"),
-              ),
-              availableHours: hours,
-              batteryPercent: battery,
-              startAnchor,
-            });
+            try {
+              const result = await chatPlanAction({
+                messages: nextMessages.filter(
+                  (m, i) => !(i === 0 && m.role === "assistant"),
+                ),
+                availableHours: hours,
+                batteryPercent: battery,
+                startAnchor,
+              });
 
-            if (!result.ok) {
+              if (!result.ok) {
+                setError(
+                  result.error === "unauthorized"
+                    ? t("errorUnauthorized")
+                    : result.error === "no_profile"
+                      ? t("errorNoProfile")
+                      : result.error === "ai"
+                        ? (result.message ?? t("errorAi"))
+                        : result.error === "parse"
+                          ? t("errorParse")
+                          : t("errorSave"),
+                );
+                return;
+              }
+
+              setMessages((prev) => [
+                ...prev,
+                { role: "assistant", content: result.reply },
+              ]);
+
+              if (result.routeId) {
+                router.push(`/routes/${result.routeId}`);
+              }
+            } catch {
+              setError(t("errorAi"));
+            } finally {
               setPending(false);
-              setError(
-                result.error === "unauthorized"
-                  ? t("errorUnauthorized")
-                  : result.error === "no_profile"
-                    ? t("errorNoProfile")
-                    : result.error === "ai"
-                      ? (result.message ?? t("errorAi"))
-                      : result.error === "parse"
-                        ? t("errorParse")
-                        : t("errorSave"),
-              );
-              return;
-            }
-
-            setMessages((prev) => [
-              ...prev,
-              { role: "assistant", content: result.reply },
-            ]);
-            setPending(false);
-
-            if (result.routeId) {
-              router.push(`/routes/${result.routeId}`);
-              router.refresh();
             }
           })();
         }}

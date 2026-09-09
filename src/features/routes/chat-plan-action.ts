@@ -10,8 +10,8 @@ import {
 import type { GoAiChatCompletionResponse } from "@/features/ai/go-ai-types";
 import { getProfileForCurrentUser } from "@/features/profile/profile-actions";
 import {
+  chatTripMetaSchema,
   parseItineraryResponse,
-  planRouteInputSchema,
   type PlanRouteInput,
 } from "@/features/routes/itinerary-schema";
 import {
@@ -46,18 +46,7 @@ export type ChatPlanResult =
       message?: string;
     };
 
-const chatMessageSchema = planRouteInputSchema
-  .pick({
-    availableHours: true,
-    batteryPercent: true,
-    startAnchor: true,
-    startOtherText: true,
-    startOtherLat: true,
-    startOtherLng: true,
-  })
-  .extend({
-    // validated manually below for turns
-  });
+const PAST_ROUTE_LIMIT = 5;
 
 async function loadPastRatedRoutes(userId: string): Promise<PastRouteMemory[]> {
   const rows = await db
@@ -77,7 +66,7 @@ async function loadPastRatedRoutes(userId: string): Promise<PastRouteMemory[]> {
       ),
     )
     .orderBy(desc(routes.updatedAt))
-    .limit(5);
+    .limit(PAST_ROUTE_LIMIT);
 
   return rows.map((row) => ({
     title: row.title,
@@ -128,7 +117,7 @@ export async function chatPlanAction(input: unknown): Promise<ChatPlanResult> {
     return { ok: false, error: "invalid" };
   }
 
-  const meta = chatMessageSchema.safeParse({
+  const meta = chatTripMetaSchema.safeParse({
     availableHours: body.availableHours,
     batteryPercent: body.batteryPercent,
     startAnchor: body.startAnchor ?? "home",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  chatTripMetaSchema,
   extractJsonObject,
   itinerarySchema,
   parseItineraryResponse,
@@ -92,6 +93,16 @@ describe("plan and rate input schemas", () => {
         startAnchor: "home",
       }).availableHours,
     ).toBe(3);
+  });
+
+  it("validates chat trip meta without picking refined schema", () => {
+    expect(
+      chatTripMetaSchema.parse({
+        availableHours: 3,
+        batteryPercent: 70,
+        startAnchor: "work",
+      }).startAnchor,
+    ).toBe("work");
   });
 
   it("requires other address when start is other", () => {

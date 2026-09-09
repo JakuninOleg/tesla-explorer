@@ -41,23 +41,25 @@ export type Itinerary = z.infer<typeof itinerarySchema>;
 
 export const startAnchorSchema = z.enum(["home", "work", "other"]);
 
-export const planRouteInputSchema = z
-  .object({
-    requestPrompt: z
-      .string()
-      .trim()
-      .min(8, "Describe what you want from this drive")
-      .max(800),
-    availableHours: z.coerce.number().int().min(1).max(16),
-    batteryPercent: z.coerce.number().int().min(1).max(100),
-    startAnchor: startAnchorSchema,
-    startOtherText: z.string().trim().max(200).optional().default(""),
-    startOtherLat: z.coerce.number().min(-90).max(90).nullable().optional(),
-    startOtherLng: z.coerce.number().min(-180).max(180).nullable().optional(),
-    adjustOfRouteId: z.string().uuid().optional(),
-    adjustNotes: z.string().trim().max(800).optional(),
-  })
-  .superRefine((value, ctx) => {
+/** Base fields without refinements — safe to `.pick()`. */
+export const planRouteFieldsSchema = z.object({
+  requestPrompt: z
+    .string()
+    .trim()
+    .min(8, "Describe what you want from this drive")
+    .max(800),
+  availableHours: z.coerce.number().int().min(1).max(16),
+  batteryPercent: z.coerce.number().int().min(1).max(100),
+  startAnchor: startAnchorSchema,
+  startOtherText: z.string().trim().max(200).optional().default(""),
+  startOtherLat: z.coerce.number().min(-90).max(90).nullable().optional(),
+  startOtherLng: z.coerce.number().min(-180).max(180).nullable().optional(),
+  adjustOfRouteId: z.string().uuid().optional(),
+  adjustNotes: z.string().trim().max(800).optional(),
+});
+
+export const planRouteInputSchema = planRouteFieldsSchema.superRefine(
+  (value, ctx) => {
     if (value.startAnchor === "other" && value.startOtherText.trim().length < 5) {
       ctx.addIssue({
         code: "custom",
@@ -65,9 +67,21 @@ export const planRouteInputSchema = z
         path: ["startOtherText"],
       });
     }
-  });
+  },
+);
+
+/** Hours / battery / start for chat planner (no requestPrompt yet). */
+export const chatTripMetaSchema = planRouteFieldsSchema.pick({
+  availableHours: true,
+  batteryPercent: true,
+  startAnchor: true,
+  startOtherText: true,
+  startOtherLat: true,
+  startOtherLng: true,
+});
 
 export type PlanRouteInput = z.infer<typeof planRouteInputSchema>;
+export type ChatTripMeta = z.infer<typeof chatTripMetaSchema>;
 
 export const rateRouteInputSchema = z.object({
   routeId: z.string().uuid(),
