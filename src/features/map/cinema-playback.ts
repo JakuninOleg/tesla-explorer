@@ -18,10 +18,10 @@ export function cinemaPlaybackDurationMs(line: LineString | null): number {
   );
 }
 
-/** Chase-cam offsets — GTA-style close third person. */
+/** Chase-cam — tight third-person, game-like. */
 export const CINEMA_FOLLOW = {
-  behindMeters: 14,
-  zoom: 18.35,
-  pitch: 58,
-  idleZoom: 18.1,
+  behindMeters: 7,
+  zoom: 19.55,
+  pitch: 68,
+  idleZoom: 19.4,
 } as const;
