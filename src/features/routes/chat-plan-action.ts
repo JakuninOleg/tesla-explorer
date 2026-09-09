@@ -27,7 +27,9 @@ import {
   estimateRangeMiles,
   sumApproxDriveMiles,
 } from "@/features/routes/tesla-range";
+import { isLocale, type Locale } from "@/i18n/routing";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { getLocale } from "next-intl/server";
 
 export type ChatPlanResult =
   | {
@@ -238,9 +240,13 @@ export async function chatPlanAction(input: unknown): Promise<ChatPlanResult> {
     return { ok: false, error: "invalid" };
   }
 
+  const localeRaw =
+    typeof body.locale === "string" ? body.locale : await getLocale();
+  const locale: Locale = isLocale(localeRaw) ? localeRaw : "en";
+
   // Single-shot JSON planner — conversational prose is unreliable for map handoff.
   const planMessages = [
-    { role: "system", content: buildPlanSystemPrompt() },
+    { role: "system", content: buildPlanSystemPrompt(locale) },
     {
       role: "user",
       content: `${context}\nConversation:\n${turns
@@ -273,7 +279,7 @@ export async function chatPlanAction(input: unknown): Promise<ChatPlanResult> {
   if (!itinerary) {
     try {
       const forced = await callGoAi([
-        { role: "system", content: buildForceItinerarySystemPrompt() },
+        { role: "system", content: buildForceItinerarySystemPrompt(locale) },
         { role: "system", content: context },
         {
           role: "user",

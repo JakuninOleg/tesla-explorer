@@ -28,6 +28,8 @@ import {
   estimateRangeMiles,
   sumApproxDriveMiles,
 } from "@/features/routes/tesla-range";
+import { isLocale, type Locale } from "@/i18n/routing";
+import { getLocale } from "next-intl/server";
 
 export type PlanRouteResult =
   | { ok: true; id: string; rangeWarning: string | null }
@@ -121,6 +123,7 @@ async function generateItinerary(options: {
   profile: NonNullable<Awaited<ReturnType<typeof getProfileForCurrentUser>>>;
   input: PlanRouteInput;
   userId: string;
+  locale: Locale;
 }) {
   const range = estimateRangeMiles({
     model: options.profile.teslaModel,
@@ -134,7 +137,7 @@ async function generateItinerary(options: {
       model: process.env.GO_AI_MODEL ?? "default",
       temperature: 0.4,
       messages: [
-        { role: "system", content: buildPlanSystemPrompt() },
+        { role: "system", content: buildPlanSystemPrompt(options.locale) },
         {
           role: "user",
           content: buildPlanUserPrompt({
@@ -245,10 +248,13 @@ export async function planRouteAction(
 
   let generated;
   try {
+    const localeRaw = await getLocale();
+    const locale: Locale = isLocale(localeRaw) ? localeRaw : "en";
     generated = await generateItinerary({
       profile,
       input: parsed.data,
       userId: session.user.id,
+      locale,
     });
   } catch {
     return {

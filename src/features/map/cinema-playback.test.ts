@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cinemaPlaybackDurationMs,
+  cinemaPlaybackMsAtRate,
   CINEMA_FOLLOW,
   CINEMA_PLAYBACK_MAX_MS,
   CINEMA_PLAYBACK_MIN_MS,
@@ -30,6 +31,23 @@ describe("cinemaPlaybackDurationMs", () => {
     });
     expect(ms).toBeGreaterThan(CINEMA_PLAYBACK_MIN_MS);
     expect(ms).toBeLessThanOrEqual(CINEMA_PLAYBACK_MAX_MS);
+  });
+});
+
+describe("cinemaPlaybackMsAtRate", () => {
+  it("shortens duration at 2× and lengthens at 0.5×", () => {
+    const line = {
+      type: "LineString" as const,
+      coordinates: [
+        [-97.8, 30.4],
+        [-97.5, 30.4],
+        [-97.2, 30.4],
+        [-96.9, 30.4],
+      ],
+    };
+    const base = cinemaPlaybackDurationMs(line);
+    expect(cinemaPlaybackMsAtRate(line, 2)).toBe(Math.round(base / 2));
+    expect(cinemaPlaybackMsAtRate(line, 0.5)).toBe(Math.round(base / 0.5));
   });
 });
 
