@@ -15,7 +15,10 @@ import {
   type LngLat,
   type MappedStop,
 } from "@/features/map/route-geometry";
-import { CINEMA_FOLLOW } from "@/features/map/cinema-playback";
+import {
+  CINEMA_FOLLOW,
+  chaseCameraPlacement,
+} from "@/features/map/cinema-playback";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 export type RouteMapProps = {
@@ -28,6 +31,40 @@ export type RouteMapProps = {
   /** Full-bleed cinema stage (route page hero). */
   cinematic?: boolean;
 };
+
+/** Third-person chase via Mapbox FreeCamera (game-like), with jumpTo fallback. */
+function applyChaseCamera(
+  map: mapboxgl.Map,
+  pose: { lngLat: LngLat; headingDeg: number },
+) {
+  try {
+    const placement = chaseCameraPlacement(pose);
+    const camera = map.getFreeCameraOptions();
+    camera.position = mapboxgl.MercatorCoordinate.fromLngLat(
+      {
+        lng: placement.position.lng,
+        lat: placement.position.lat,
+      },
+      placement.position.altitude,
+    );
+    camera.lookAtPoint(
+      {
+        lng: placement.lookAt.lng,
+        lat: placement.lookAt.lat,
+      },
+      undefined,
+      placement.lookAt.altitude,
+    );
+    map.setFreeCameraOptions(camera);
+  } catch {
+    map.jumpTo({
+      center: cameraFollowTarget(pose, CINEMA_FOLLOW.behindMeters),
+      zoom: CINEMA_FOLLOW.zoom,
+      pitch: CINEMA_FOLLOW.pitch,
+      bearing: pose.headingDeg,
+    });
+  }
+}
 
 function add3dBuildings(map: mapboxgl.Map) {
   const layers = map.getStyle()?.layers;
@@ -224,15 +261,7 @@ export function RouteMap({
             });
           }
         } else if (startPose) {
-          map.jumpTo({
-            center: cameraFollowTarget(
-              startPose,
-              CINEMA_FOLLOW.behindMeters,
-            ),
-            zoom: CINEMA_FOLLOW.idleZoom,
-            pitch: CINEMA_FOLLOW.pitch,
-            bearing: startPose.headingDeg,
-          });
+          applyChaseCamera(map, startPose);
         }
       } else {
         const bounds = boundsFromCoordinates(mappedStops.map((s) => s.lngLat));
@@ -285,15 +314,16 @@ export function RouteMap({
     carLayer?.setPose(carPose);
 
     if (cinematic || playProgress != null) {
-      map.jumpTo({
-        center: cameraFollowTarget(
-          pose,
-          cinematic ? CINEMA_FOLLOW.behindMeters : 40,
-        ),
-        zoom: cinematic ? CINEMA_FOLLOW.zoom : 15.6,
-        pitch: cinematic ? CINEMA_FOLLOW.pitch : 58,
-        bearing: pose.headingDeg,
-      });
+      if (cinematic) {
+        applyChaseCamera(map, pose);
+      } else {
+        map.jumpTo({
+          center: cameraFollowTarget(pose, 40),
+          zoom: 15.6,
+          pitch: 58,
+          bearing: pose.headingDeg,
+        });
+      }
     }
   }, [playProgress, line, cinematic]);
 

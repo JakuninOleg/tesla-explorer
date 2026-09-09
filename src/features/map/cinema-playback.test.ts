@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  chaseCameraPlacement,
   cinemaPlaybackDurationMs,
   CINEMA_PLAYBACK_MAX_MS,
   CINEMA_PLAYBACK_MIN_MS,
@@ -29,5 +30,22 @@ describe("cinemaPlaybackDurationMs", () => {
     });
     expect(ms).toBeGreaterThan(CINEMA_PLAYBACK_MIN_MS);
     expect(ms).toBeLessThanOrEqual(CINEMA_PLAYBACK_MAX_MS);
+  });
+});
+
+describe("chaseCameraPlacement", () => {
+  it("puts the camera behind the car and looks ahead along heading", () => {
+    // Heading 0 = north; camera should be south of the car.
+    const pose = { lngLat: [-97.7, 30.4] as [number, number], headingDeg: 0 };
+    const cam = chaseCameraPlacement(pose, {
+      behindMeters: 10,
+      lookAheadMeters: 14,
+      altitudeMeters: 4,
+      lookAtAltitudeMeters: 1,
+    });
+    expect(cam.position.lat).toBeLessThan(pose.lngLat[1]);
+    expect(cam.lookAt.lat).toBeGreaterThan(pose.lngLat[1]);
+    expect(cam.position.altitude).toBe(4);
+    expect(cam.lookAt.altitude).toBe(1);
   });
 });
