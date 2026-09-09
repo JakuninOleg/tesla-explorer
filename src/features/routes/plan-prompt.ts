@@ -24,10 +24,11 @@ export function buildPlanSystemPrompt(): string {
     "If planned driving would exceed the budget, include a Supercharger (role charge) or shorten explore legs.",
     "Mark each stop role as must | explore | charge.",
     "Respond with JSON only — no markdown — matching:",
-    '{"title":"string","summary":"string","stops":[{"name":"string","kind":"scenic|food|charge|activity|viewpoint|other|anchor","role":"must|explore|charge","reason":"string","approxMinutes":number,"approxDriveMiles":number,"lat":number?,"lng":number?}]}',
+    '{"title":"string","summary":"string","stops":[{"name":"string","kind":"scenic|food|charge|activity|viewpoint|other|anchor","role":"must|explore|charge","reason":"string","approxMinutes":number,"approxDriveMiles":number,"lat":number?,"lng":number?,"youtubeVideoId":"11-char id when known"}]}',
     "Include 2–8 stops. approxDriveMiles is miles driven TO that stop from the previous point (0 for the start).",
     "approxMinutes is dwell time at the stop (not drive time); use 0 for return-home / pass-through anchors.",
     "Optional lat/lng must be approximate WGS84 in the USA when known.",
+    "For food/scenic/activity explore stops, prefer a real public youtubeVideoId of a short place review when you know one.",
   ].join(" ");
 }
 

@@ -15,6 +15,7 @@ import {
   type LngLat,
   type MappedStop,
 } from "@/features/map/route-geometry";
+import { CINEMA_FOLLOW } from "@/features/map/cinema-playback";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 export type RouteMapProps = {
@@ -109,8 +110,8 @@ export function RouteMap({
       container: containerRef.current,
       style: "mapbox://styles/mapbox/dark-v11",
       center: stops[0]!.lngLat,
-      zoom: cinematic ? 15.5 : 11,
-      pitch: cinematic ? 62 : 45,
+      zoom: cinematic ? CINEMA_FOLLOW.idleZoom : 11,
+      pitch: cinematic ? CINEMA_FOLLOW.pitch : 45,
       bearing: 0,
       antialias: true,
       attributionControl: true,
@@ -206,9 +207,12 @@ export function RouteMap({
           }
         } else if (startPose) {
           map.jumpTo({
-            center: cameraFollowTarget(startPose),
-            zoom: 16.2,
-            pitch: 64,
+            center: cameraFollowTarget(
+              startPose,
+              CINEMA_FOLLOW.behindMeters,
+            ),
+            zoom: CINEMA_FOLLOW.idleZoom,
+            pitch: CINEMA_FOLLOW.pitch,
             bearing: startPose.headingDeg,
           });
         }
@@ -249,12 +253,9 @@ export function RouteMap({
       return;
     }
 
-    if (playProgress == null) {
-      carLayer?.setPose(null);
-      return;
-    }
-
-    const pose = poseAlongLine(coordinates, playProgress);
+    // Keep the car on-screen at rest (progress null = start of route).
+    const progress = playProgress ?? 0;
+    const pose = poseAlongLine(coordinates, progress);
     if (!pose) {
       return;
     }
@@ -265,12 +266,17 @@ export function RouteMap({
     };
     carLayer?.setPose(carPose);
 
-    map.jumpTo({
-      center: cameraFollowTarget(pose, cinematic ? 48 : 55),
-      zoom: cinematic ? 16.4 : 15.6,
-      pitch: cinematic ? 66 : 58,
-      bearing: pose.headingDeg,
-    });
+    if (cinematic || playProgress != null) {
+      map.jumpTo({
+        center: cameraFollowTarget(
+          pose,
+          cinematic ? CINEMA_FOLLOW.behindMeters : 40,
+        ),
+        zoom: cinematic ? CINEMA_FOLLOW.zoom : 15.6,
+        pitch: cinematic ? CINEMA_FOLLOW.pitch : 58,
+        bearing: pose.headingDeg,
+      });
+    }
   }, [playProgress, line, cinematic]);
 
   if (!token) {

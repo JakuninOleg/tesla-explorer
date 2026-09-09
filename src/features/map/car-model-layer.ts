@@ -4,72 +4,156 @@ import type { LngLat } from "@/features/map/route-geometry";
 
 const LAYER_ID = "tesla-explorer-ev-car";
 
+/** Visual scale in meters — large enough to read at chase-cam zoom. */
+export const CAR_METERS_SCALE = 3.4;
+
 export type CarModelPose = {
   lngLat: LngLat;
   headingDeg: number;
 };
 
-/** Stylized crossover EV (Model Y vibe) — original meshes, not Tesla IP. */
+/**
+ * Detailed crossover EV (Model Y vibe) — original procedural meshes, not Tesla IP.
+ * Built from many parts so it reads as a car in third-person chase cam, not a box.
+ */
 export function createEvCarGroup(): THREE.Group {
   const car = new THREE.Group();
 
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color: 0xf2f2f2,
-    metalness: 0.55,
+  const paint = new THREE.MeshStandardMaterial({
+    color: 0xe8e8ea,
+    metalness: 0.72,
+    roughness: 0.28,
+  });
+  const darkPaint = new THREE.MeshStandardMaterial({
+    color: 0x2a2a2c,
+    metalness: 0.65,
     roughness: 0.35,
   });
-  const glassMat = new THREE.MeshStandardMaterial({
-    color: 0x111111,
-    metalness: 0.9,
-    roughness: 0.1,
+  const glass = new THREE.MeshStandardMaterial({
+    color: 0x0a0a12,
+    metalness: 0.95,
+    roughness: 0.05,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.72,
   });
-  const accentMat = new THREE.MeshStandardMaterial({
+  const accent = new THREE.MeshStandardMaterial({
     color: 0xe31937,
-    metalness: 0.4,
-    roughness: 0.4,
+    metalness: 0.5,
+    roughness: 0.35,
     emissive: 0xe31937,
-    emissiveIntensity: 0.35,
+    emissiveIntensity: 0.55,
   });
-  const wheelMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1a1a,
-    metalness: 0.2,
-    roughness: 0.7,
+  const rubber = new THREE.MeshStandardMaterial({
+    color: 0x111111,
+    metalness: 0.15,
+    roughness: 0.85,
+  });
+  const rim = new THREE.MeshStandardMaterial({
+    color: 0xc8c8cc,
+    metalness: 0.9,
+    roughness: 0.25,
+  });
+  const chrome = new THREE.MeshStandardMaterial({
+    color: 0xd0d0d4,
+    metalness: 0.95,
+    roughness: 0.15,
   });
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.55, 4.4), bodyMat);
-  body.position.y = 0.55;
+  // Lower body / rocker
+  const rocker = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.28, 4.55), darkPaint);
+  rocker.position.y = 0.28;
+  car.add(rocker);
+
+  // Main body
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.98, 0.62, 4.35), paint);
+  body.position.y = 0.68;
   car.add(body);
 
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.55, 2.2), glassMat);
-  cabin.position.set(0, 1.05, -0.15);
-  car.add(cabin);
-
-  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.12, 1.1), bodyMat);
-  hood.position.set(0, 0.78, 1.45);
+  // Hood slope (two plates)
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.88, 0.14, 1.25), paint);
+  hood.position.set(0, 0.98, 1.35);
+  hood.rotation.x = -0.12;
   car.add(hood);
 
-  const lightBar = new THREE.Mesh(
-    new THREE.BoxGeometry(1.4, 0.08, 0.12),
-    accentMat,
-  );
-  lightBar.position.set(0, 0.55, 2.2);
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.22, 0.55), paint);
+  nose.position.set(0, 0.72, 2.15);
+  car.add(nose);
+
+  // Cabin / greenhouse
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.58, 2.05), glass);
+  cabin.position.set(0, 1.22, -0.2);
+  car.add(cabin);
+
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.08, 1.7), darkPaint);
+  roof.position.set(0, 1.54, -0.25);
+  car.add(roof);
+
+  // Windshield angle
+  const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.06, 0.95), glass);
+  windshield.position.set(0, 1.28, 0.85);
+  windshield.rotation.x = -0.55;
+  car.add(windshield);
+
+  // Rear hatch
+  const hatch = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.5, 0.12), glass);
+  hatch.position.set(0, 1.15, -1.25);
+  hatch.rotation.x = 0.25;
+  car.add(hatch);
+
+  // Front light bar (signature)
+  const lightBar = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.07, 0.1), accent);
+  lightBar.position.set(0, 0.62, 2.38);
   car.add(lightBar);
 
-  const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.28, 16);
+  // Rear light bar
+  const rearLight = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.08, 0.08), accent);
+  rearLight.position.set(0, 0.85, -2.25);
+  car.add(rearLight);
+
+  // Side skirts
+  for (const x of [-1.05, 1.05]) {
+    const skirt = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.18, 3.2), darkPaint);
+    skirt.position.set(x, 0.32, 0);
+    car.add(skirt);
+  }
+
+  // Mirrors
+  for (const x of [-1.05, 1.05]) {
+    const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.22), darkPaint);
+    mirror.position.set(x, 1.05, 0.55);
+    car.add(mirror);
+    const glassMirror = new THREE.Mesh(
+      new THREE.BoxGeometry(0.18, 0.1, 0.04),
+      chrome,
+    );
+    glassMirror.position.set(x * 1.08, 1.05, 0.45);
+    car.add(glassMirror);
+  }
+
+  // Wheels + rims
+  const tireGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.32, 24);
+  const rimGeo = new THREE.CylinderGeometry(0.26, 0.26, 0.34, 16);
   const wheelPositions: Array<[number, number, number]> = [
-    [-0.95, 0.38, 1.35],
-    [0.95, 0.38, 1.35],
-    [-0.95, 0.38, -1.35],
-    [0.95, 0.38, -1.35],
+    [-0.98, 0.42, 1.45],
+    [0.98, 0.42, 1.45],
+    [-0.98, 0.42, -1.4],
+    [0.98, 0.42, -1.4],
   ];
   for (const [x, y, z] of wheelPositions) {
-    const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-    wheel.rotation.z = Math.PI / 2;
-    wheel.position.set(x, y, z);
-    car.add(wheel);
+    const tire = new THREE.Mesh(tireGeo, rubber);
+    tire.rotation.z = Math.PI / 2;
+    tire.position.set(x, y, z);
+    car.add(tire);
+    const hub = new THREE.Mesh(rimGeo, rim);
+    hub.rotation.z = Math.PI / 2;
+    hub.position.set(x, y, z);
+    car.add(hub);
   }
+
+  // Subtle front fascia splitter
+  const splitter = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.05, 0.35), darkPaint);
+  splitter.position.set(0, 0.22, 2.25);
+  car.add(splitter);
 
   return car;
 }
@@ -97,7 +181,7 @@ function transformFromPose(pose: CarModelPose): Transform {
     rotateY: 0,
     // Mapbox bearing clockwise from north; model +Z forward after rotateX.
     rotateZ: (-pose.headingDeg * Math.PI) / 180,
-    scale: merc.meterInMercatorCoordinateUnits() * 1.2,
+    scale: merc.meterInMercatorCoordinateUnits() * CAR_METERS_SCALE,
   };
 }
 
@@ -136,13 +220,13 @@ export function createCarModelLayer(
       const camera = new THREE.Camera();
       const scene = new THREE.Scene();
 
-      const light = new THREE.DirectionalLight(0xffffff, 1.15);
+      const light = new THREE.DirectionalLight(0xffffff, 1.35);
       light.position.set(0, -70, 100).normalize();
       scene.add(light);
-      const light2 = new THREE.DirectionalLight(0xffffff, 0.6);
+      const light2 = new THREE.DirectionalLight(0xfff2e0, 0.75);
       light2.position.set(0, 70, 100).normalize();
       scene.add(light2);
-      scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+      scene.add(new THREE.AmbientLight(0xffffff, 0.45));
 
       const car = createEvCarGroup();
       scene.add(car);
