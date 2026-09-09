@@ -53,6 +53,8 @@ export function OnboardingForm({
           workLat: readCoord(form.get("workLat")),
           workLng: readCoord(form.get("workLng")),
           household: String(form.get("household") ?? ""),
+          kidsCount: Number(form.get("kidsCount") ?? 0),
+          aboutMe: String(form.get("aboutMe") ?? ""),
           interests: String(form.get("interests") ?? ""),
           teslaModel: String(form.get("teslaModel") ?? ""),
         };
@@ -130,6 +132,29 @@ export function OnboardingForm({
           </label>
         </div>
       </fieldset>
+
+      <label className="block">
+        <span className={labelClass}>{t("kidsCount")}</span>
+        <input
+          type="number"
+          name="kidsCount"
+          min={0}
+          max={8}
+          defaultValue={initialProfile?.kidsCount ?? 0}
+          className={fieldClass}
+        />
+      </label>
+
+      <label className="block">
+        <span className={labelClass}>{t("aboutMe")}</span>
+        <textarea
+          name="aboutMe"
+          rows={2}
+          defaultValue={initialProfile?.aboutMe ?? ""}
+          placeholder={t("aboutMePlaceholder")}
+          className={fieldClass}
+        />
+      </label>
 
       <label className="block">
         <span className={labelClass}>{t("interests")}</span>

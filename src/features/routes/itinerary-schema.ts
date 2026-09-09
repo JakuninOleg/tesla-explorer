@@ -22,6 +22,12 @@ export const itineraryStopSchema = z.object({
   approxDriveMiles: z.coerce.number().min(0).max(500).optional(),
   lat: z.coerce.number().min(-90).max(90).optional(),
   lng: z.coerce.number().min(-180).max(180).optional(),
+  /** Optional public YouTube video id for cinema overlay. */
+  youtubeVideoId: z
+    .string()
+    .trim()
+    .regex(/^[a-zA-Z0-9_-]{6,20}$/)
+    .optional(),
 });
 
 export const itinerarySchema = z.object({

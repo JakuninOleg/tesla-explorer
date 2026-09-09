@@ -4,19 +4,32 @@ import { RouteCinema } from "@/features/map/route-cinema";
 import { stopsWithCoordinates } from "@/features/map/route-geometry";
 import type { ItineraryStop } from "@/features/routes/itinerary-schema";
 
-export async function RouteMapSection({ stops }: { stops: ItineraryStop[] }) {
+export async function RouteMapSection({
+  stops,
+  status,
+}: {
+  stops: ItineraryStop[];
+  status?: "proposed" | "approved" | "declined";
+}) {
   const t = await getTranslations("RouteDetail");
   const mapped = stopsWithCoordinates(stops);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim() || null;
   const line =
     mapped.length >= 2 ? await fetchDrivingGeometry(mapped) : null;
+  const cinematic = status === "approved" || status === "proposed";
 
   return (
-    <section>
-      <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+    <section className={cinematic ? "-mx-6 md:-mx-10" : undefined}>
+      <h2
+        className={
+          cinematic
+            ? "px-6 text-sm font-medium tracking-[0.18em] text-muted-foreground uppercase md:px-10"
+            : "text-sm font-medium tracking-[0.18em] text-muted-foreground uppercase"
+        }
+      >
         {t("map")}
       </h2>
-      <div className="mt-4">
+      <div className={cinematic ? "mt-3" : "mt-4"}>
         <RouteCinema
           stops={mapped}
           line={line}
@@ -27,6 +40,12 @@ export async function RouteMapSection({ stops }: { stops: ItineraryStop[] }) {
           pauseLabel={t("cinemaPause")}
           replayLabel={t("cinemaReplay")}
           chargePulseLabel={t("cinemaCharging")}
+          continueLabel={t("cinemaContinue")}
+          watchPlaceLabel={t("cinemaWatchPlace")}
+          openYoutubeLabel={t("placeYoutube")}
+          cinematic={cinematic}
+          autoPlay={status === "approved"}
+          itineraryStops={stops}
         />
       </div>
     </section>

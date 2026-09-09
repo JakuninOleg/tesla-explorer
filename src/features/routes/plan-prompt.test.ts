@@ -21,6 +21,8 @@ describe("plan prompt builder", () => {
         workLat: 27.96,
         workLng: -82.46,
         household: "family",
+        kidsCount: 2,
+        aboutMe: "Dad in mid-30s",
         interests: "seafood, parks",
         teslaModel: "Model Y",
       },
@@ -46,6 +48,8 @@ describe("plan prompt builder", () => {
     expect(prompt).toContain("Home: 12 Oak St");
     expect(prompt).toContain("Work: 100 Office Blvd");
     expect(prompt).toContain("Start (work)");
+    expect(prompt).toContain("Kids count: 2");
+    expect(prompt).toContain("Dad in mid-30s");
     expect(prompt).toContain("RANGE BUDGET (FACT");
     expect(prompt).toContain("Avoid loud malls");
     expect(buildPlanSystemPrompt()).toMatch(/do not invent a different/i);

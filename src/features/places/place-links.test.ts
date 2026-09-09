@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildPlaceContextLinks } from "@/features/places/place-links";
+import {
+  buildPlaceContextLinks,
+  buildYoutubeEmbedUrl,
+} from "@/features/places/place-links";
 
 describe("place context links", () => {
   it("builds Maps and YouTube URLs for a stop with coordinates", () => {
@@ -19,5 +22,18 @@ describe("place context links", () => {
     const links = buildPlaceContextLinks({ name: "Local seafood" });
     expect(links.mapsUrl).toContain(encodeURIComponent("Local seafood"));
     expect(links.youtubeUrl).toContain(encodeURIComponent("Local seafood"));
+  });
+
+  it("embeds a concrete video id and falls back to watch search", () => {
+    const withId = buildYoutubeEmbedUrl({
+      placeName: "Pease Park",
+      videoId: "dQw4w9WgXcQ",
+    });
+    expect(withId.embedUrl).toContain("/embed/dQw4w9WgXcQ");
+    expect(withId.watchUrl).toContain("watch?v=dQw4w9WgXcQ");
+
+    const noId = buildYoutubeEmbedUrl({ placeName: "Pease Park Austin" });
+    expect(noId.embedUrl).toBeNull();
+    expect(noId.watchUrl).toContain("youtube.com/results");
   });
 });
