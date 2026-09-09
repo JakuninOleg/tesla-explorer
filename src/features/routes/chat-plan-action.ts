@@ -12,11 +12,14 @@ import { getProfileForCurrentUser } from "@/features/profile/profile-actions";
 import {
   chatTripMetaSchema,
   parseItineraryResponse,
+  type Itinerary,
   type PlanRouteInput,
 } from "@/features/routes/itinerary-schema";
 import {
   buildChatSystemPrompt,
   buildDriverContextBlock,
+  buildForceItinerarySystemPrompt,
+  shouldForceItineraryJson,
   type ChatTurn,
   type PastRouteMemory,
 } from "@/features/routes/plan-prompt";
@@ -101,6 +104,87 @@ function normalizeTurns(raw: unknown): ChatTurn[] | null {
   return turns;
 }
 
+async function callGoAi(messages: Array<{ role: string; content: string }>) {
+  const response = await goAiChatCompletions({
+    body: {
+      model: process.env.GO_AI_MODEL ?? "default",
+      temperature: 0.35,
+      messages: messages as Array<{
+        role: "system" | "user" | "assistant";
+        content: string;
+      }>,
+    },
+  });
+
+  if (!response.ok) {
+    const err = await readGoAiSafeError(response);
+    return { ok: false as const, message: err.message };
+  }
+
+  try {
+    const payload = (await response.json()) as GoAiChatCompletionResponse;
+    const content = payload.choices?.[0]?.message?.content;
+    if (!content?.trim()) {
+      return { ok: false as const, message: "empty" };
+    }
+    return { ok: true as const, content: content.trim() };
+  } catch {
+    return { ok: false as const, message: "parse" };
+  }
+}
+
+function tryParseItinerary(content: string): Itinerary | null {
+  try {
+    return parseItineraryResponse(content);
+  } catch {
+    return null;
+  }
+}
+
+async function persistItinerary(options: {
+  userId: string;
+  itinerary: Itinerary;
+  meta: PlanRouteInput;
+  rangeBudgetMiles: number;
+  rangeWarning: string | null;
+}): Promise<{ id: string } | null> {
+  try {
+    const id = crypto.randomUUID();
+    const now = new Date();
+    await db.insert(routes).values({
+      id,
+      userId: options.userId,
+      title: options.itinerary.title,
+      summary: options.itinerary.summary,
+      requestPrompt: options.meta.requestPrompt,
+      availableHours: options.meta.availableHours,
+      batteryPercent: options.meta.batteryPercent,
+      startAnchor: options.meta.startAnchor,
+      startOtherText:
+        options.meta.startAnchor === "other"
+          ? options.meta.startOtherText || null
+          : null,
+      startOtherLat:
+        options.meta.startAnchor === "other"
+          ? (options.meta.startOtherLat ?? null)
+          : null,
+      startOtherLng:
+        options.meta.startAnchor === "other"
+          ? (options.meta.startOtherLng ?? null)
+          : null,
+      status: "proposed",
+      stopsJson: JSON.stringify(options.itinerary.stops),
+      rangeBudgetMiles: options.rangeBudgetMiles,
+      rangeWarning: options.rangeWarning,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { id };
+  } catch {
+    return null;
+  }
+}
+
 export async function chatPlanAction(input: unknown): Promise<ChatPlanResult> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -117,7 +201,7 @@ export async function chatPlanAction(input: unknown): Promise<ChatPlanResult> {
     return { ok: false, error: "invalid" };
   }
 
-  const meta = chatTripMetaSchema.safeParse({
+  const metaParsed = chatTripMetaSchema.safeParse({
     availableHours: body.availableHours,
     batteryPercent: body.batteryPercent,
     startAnchor: body.startAnchor ?? "home",
@@ -125,7 +209,7 @@ export async function chatPlanAction(input: unknown): Promise<ChatPlanResult> {
     startOtherLat: body.startOtherLat ?? null,
     startOtherLng: body.startOtherLng ?? null,
   });
-  if (!meta.success) {
+  if (!metaParsed.success) {
     return { ok: false, error: "invalid" };
   }
 
@@ -136,35 +220,31 @@ export async function chatPlanAction(input: unknown): Promise<ChatPlanResult> {
 
   const range = estimateRangeMiles({
     model: profile.teslaModel,
-    batteryPercent: meta.data.batteryPercent,
+    batteryPercent: metaParsed.data.batteryPercent,
   });
   const pastRoutes = await loadPastRatedRoutes(session.user.id);
   const context = buildDriverContextBlock({
     profile,
     range,
     pastRoutes,
-    startAnchor: meta.data.startAnchor,
-    startOtherText: meta.data.startOtherText,
-    batteryPercent: meta.data.batteryPercent,
-    availableHours: meta.data.availableHours,
+    startAnchor: metaParsed.data.startAnchor,
+    startOtherText: metaParsed.data.startOtherText,
+    batteryPercent: metaParsed.data.batteryPercent,
+    availableHours: metaParsed.data.availableHours,
   });
 
-  let response;
+  const baseMessages = [
+    { role: "system", content: buildChatSystemPrompt() },
+    { role: "system", content: context },
+    ...turns.map((turn) => ({
+      role: turn.role,
+      content: turn.content,
+    })),
+  ];
+
+  let ai;
   try {
-    response = await goAiChatCompletions({
-      body: {
-        model: process.env.GO_AI_MODEL ?? "default",
-        temperature: 0.45,
-        messages: [
-          { role: "system", content: buildChatSystemPrompt() },
-          { role: "system", content: context },
-          ...turns.map((turn) => ({
-            role: turn.role,
-            content: turn.content,
-          })),
-        ],
-      },
-    });
+    ai = await callGoAi(baseMessages);
   } catch {
     return {
       ok: false,
@@ -173,83 +253,78 @@ export async function chatPlanAction(input: unknown): Promise<ChatPlanResult> {
     };
   }
 
-  if (!response.ok) {
-    const err = await readGoAiSafeError(response);
-    return { ok: false, error: "ai", message: err.message };
+  if (!ai.ok) {
+    return {
+      ok: false,
+      error: ai.message === "parse" ? "parse" : "ai",
+      message: ai.message === "empty" ? undefined : ai.message,
+    };
   }
 
-  let content: string | null | undefined;
-  try {
-    const payload = (await response.json()) as GoAiChatCompletionResponse;
-    content = payload.choices?.[0]?.message?.content;
-  } catch {
-    return { ok: false, error: "parse" };
+  let content = ai.content;
+  let itinerary = tryParseItinerary(content);
+
+  if (!itinerary && shouldForceItineraryJson(content)) {
+    try {
+      const forced = await callGoAi([
+        { role: "system", content: buildForceItinerarySystemPrompt() },
+        { role: "system", content: context },
+        ...turns.map((turn) => ({
+          role: turn.role,
+          content: turn.content,
+        })),
+        {
+          role: "assistant",
+          content,
+        },
+        {
+          role: "user",
+          content:
+            "Turn that plan into the required itinerary JSON object now. JSON only.",
+        },
+      ]);
+      if (forced.ok) {
+        content = forced.content;
+        itinerary = tryParseItinerary(content);
+      }
+    } catch {
+      // fall through
+    }
   }
 
-  if (!content?.trim()) {
-    return { ok: false, error: "parse" };
-  }
-
-  let itinerary;
-  try {
-    itinerary = parseItineraryResponse(content);
-  } catch {
-    const looksLikeJson = /^\s*[{\[]/.test(content.trim()) || content.includes("```");
-    if (looksLikeJson && content.includes('"stops"')) {
+  if (!itinerary) {
+    if (shouldForceItineraryJson(content) || content.includes('"stops"')) {
       return { ok: false, error: "parse" };
     }
-    return { ok: true, reply: content.trim() };
+    return { ok: true, reply: content };
   }
 
   const plannedMiles = sumApproxDriveMiles(itinerary.stops);
   const rangeWarning = buildRangeWarning(range.budgetMiles, plannedMiles);
   const lastUser = [...turns].reverse().find((t) => t.role === "user");
   const planInput: PlanRouteInput = {
-    ...meta.data,
+    ...metaParsed.data,
     requestPrompt: lastUser?.content ?? itinerary.title,
     adjustNotes: undefined,
     adjustOfRouteId: undefined,
   };
 
-  try {
-    const id = crypto.randomUUID();
-    const now = new Date();
-    await db.insert(routes).values({
-      id,
-      userId: session.user.id,
-      title: itinerary.title,
-      summary: itinerary.summary,
-      requestPrompt: planInput.requestPrompt,
-      availableHours: planInput.availableHours,
-      batteryPercent: planInput.batteryPercent,
-      startAnchor: planInput.startAnchor,
-      startOtherText:
-        planInput.startAnchor === "other"
-          ? planInput.startOtherText || null
-          : null,
-      startOtherLat:
-        planInput.startAnchor === "other"
-          ? (planInput.startOtherLat ?? null)
-          : null,
-      startOtherLng:
-        planInput.startAnchor === "other"
-          ? (planInput.startOtherLng ?? null)
-          : null,
-      status: "proposed",
-      stopsJson: JSON.stringify(itinerary.stops),
-      rangeBudgetMiles: range.budgetMiles,
-      rangeWarning,
-      createdAt: now,
-      updatedAt: now,
-    });
+  const saved = await persistItinerary({
+    userId: session.user.id,
+    itinerary,
+    meta: planInput,
+    rangeBudgetMiles: range.budgetMiles,
+    rangeWarning,
+  });
 
-    return {
-      ok: true,
-      reply: itinerary.summary,
-      routeId: id,
-      rangeWarning,
-    };
-  } catch {
+  if (!saved) {
     return { ok: false, error: "database" };
   }
+
+  return {
+    ok: true,
+    reply: itinerary.summary,
+    routeId: saved.id,
+    rangeWarning,
+  };
 }
