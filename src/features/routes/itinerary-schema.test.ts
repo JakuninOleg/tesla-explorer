@@ -78,6 +78,49 @@ describe("itinerary schema", () => {
     expect(itinerary.stops.at(-1)?.kind).toBe("anchor");
   });
 
+  it("normalizes alternate LLM itinerary[] shapes into stops", () => {
+    const itinerary = parseItineraryResponse(
+      JSON.stringify({
+        title: "Chinese Lunch & Lakeside Walk with Kids",
+        vehicle: { model: "Tesla Model Y" },
+        itinerary: [
+          {
+            step: 1,
+            type: "origin",
+            name: "Home",
+            coordinates: { latitude: 30.435, longitude: -97.794 },
+            dwell_time_minutes: 0,
+          },
+          {
+            step: 2,
+            type: "dining",
+            name: "Din Ho Chinese BBQ",
+            notes: "Kid-friendly Cantonese BBQ",
+            coordinates: { latitude: 30.3626, longitude: -97.7145 },
+            drive_from_previous: { distance_miles: 7.5 },
+            dwell_time_minutes: 50,
+          },
+          {
+            step: 3,
+            type: "activity",
+            name: "Brushy Creek Lake Park",
+            notes: "Lakeside trail",
+            coordinates: { latitude: 30.5098, longitude: -97.7554 },
+            drive_from_previous: { distance_miles: 11 },
+            dwell_time_minutes: 60,
+          },
+        ],
+      }),
+    );
+
+    expect(itinerary.stops).toHaveLength(3);
+    expect(itinerary.stops[0]?.kind).toBe("anchor");
+    expect(itinerary.stops[1]?.kind).toBe("food");
+    expect(itinerary.stops[1]?.lat).toBeCloseTo(30.3626, 3);
+    expect(itinerary.stops[1]?.approxDriveMiles).toBe(7.5);
+    expect(itinerary.summary.length).toBeGreaterThan(5);
+  });
+
   it("extractJsonObject rejects text without braces", () => {
     expect(() => extractJsonObject("no json here")).toThrow(/JSON object/);
   });

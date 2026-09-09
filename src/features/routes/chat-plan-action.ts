@@ -16,10 +16,9 @@ import {
   type PlanRouteInput,
 } from "@/features/routes/itinerary-schema";
 import {
-  buildChatSystemPrompt,
   buildDriverContextBlock,
   buildForceItinerarySystemPrompt,
-  shouldForceItineraryJson,
+  buildPlanSystemPrompt,
   type ChatTurn,
   type PastRouteMemory,
 } from "@/features/routes/plan-prompt";
@@ -108,7 +107,7 @@ async function callGoAi(messages: Array<{ role: string; content: string }>) {
   const response = await goAiChatCompletions({
     body: {
       model: process.env.GO_AI_MODEL ?? "default",
-      temperature: 0.35,
+      temperature: 0.3,
       messages: messages as Array<{
         role: "system" | "user" | "assistant";
         content: string;
@@ -233,18 +232,26 @@ export async function chatPlanAction(input: unknown): Promise<ChatPlanResult> {
     availableHours: metaParsed.data.availableHours,
   });
 
-  const baseMessages = [
-    { role: "system", content: buildChatSystemPrompt() },
-    { role: "system", content: context },
-    ...turns.map((turn) => ({
-      role: turn.role,
-      content: turn.content,
-    })),
+  const lastUser = [...turns].reverse().find((t) => t.role === "user");
+  const requestPrompt = lastUser?.content ?? "";
+  if (requestPrompt.trim().length < 8) {
+    return { ok: false, error: "invalid" };
+  }
+
+  // Single-shot JSON planner — conversational prose is unreliable for map handoff.
+  const planMessages = [
+    { role: "system", content: buildPlanSystemPrompt() },
+    {
+      role: "user",
+      content: `${context}\nConversation:\n${turns
+        .map((t) => `${t.role}: ${t.content}`)
+        .join("\n")}\nRequest: ${requestPrompt}`,
+    },
   ];
 
   let ai;
   try {
-    ai = await callGoAi(baseMessages);
+    ai = await callGoAi(planMessages);
   } catch {
     return {
       ok: false,
@@ -261,31 +268,20 @@ export async function chatPlanAction(input: unknown): Promise<ChatPlanResult> {
     };
   }
 
-  let content = ai.content;
-  let itinerary = tryParseItinerary(content);
+  let itinerary = tryParseItinerary(ai.content);
 
-  if (!itinerary && shouldForceItineraryJson(content)) {
+  if (!itinerary) {
     try {
       const forced = await callGoAi([
         { role: "system", content: buildForceItinerarySystemPrompt() },
         { role: "system", content: context },
-        ...turns.map((turn) => ({
-          role: turn.role,
-          content: turn.content,
-        })),
-        {
-          role: "assistant",
-          content,
-        },
         {
           role: "user",
-          content:
-            "Turn that plan into the required itinerary JSON object now. JSON only.",
+          content: `Request: ${requestPrompt}\nDraft model output to convert:\n${ai.content.slice(0, 3500)}`,
         },
       ]);
       if (forced.ok) {
-        content = forced.content;
-        itinerary = tryParseItinerary(content);
+        itinerary = tryParseItinerary(forced.content);
       }
     } catch {
       // fall through
@@ -293,18 +289,14 @@ export async function chatPlanAction(input: unknown): Promise<ChatPlanResult> {
   }
 
   if (!itinerary) {
-    if (shouldForceItineraryJson(content) || content.includes('"stops"')) {
-      return { ok: false, error: "parse" };
-    }
-    return { ok: true, reply: content };
+    return { ok: false, error: "parse" };
   }
 
   const plannedMiles = sumApproxDriveMiles(itinerary.stops);
   const rangeWarning = buildRangeWarning(range.budgetMiles, plannedMiles);
-  const lastUser = [...turns].reverse().find((t) => t.role === "user");
   const planInput: PlanRouteInput = {
     ...metaParsed.data,
-    requestPrompt: lastUser?.content ?? itinerary.title,
+    requestPrompt,
     adjustNotes: undefined,
     adjustOfRouteId: undefined,
   };
