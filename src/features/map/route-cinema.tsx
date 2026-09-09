@@ -2,6 +2,7 @@
 
 import type { LineString } from "geojson";
 import { useEffect, useMemo, useState } from "react";
+import { cinemaPlaybackDurationMs } from "@/features/map/cinema-playback";
 import { RouteMap } from "@/features/map/route-map";
 import {
   progressNearCoordinate,
@@ -9,10 +10,7 @@ import {
   type MappedStop,
 } from "@/features/map/route-geometry";
 import { StopMediaOverlay } from "@/features/places/stop-media-overlay";
-import { buildYoutubeEmbedUrl } from "@/features/places/place-links";
 import type { ItineraryStop } from "@/features/routes/itinerary-schema";
-
-const PLAYBACK_MS = 48000;
 
 export function RouteCinema({
   stops,
@@ -48,7 +46,7 @@ export function RouteCinema({
   itineraryStops?: ItineraryStop[];
 }) {
   const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState<number | null>(null);
+  const [progress, setProgress] = useState<number | null>(0);
   const [activeStopIndex, setActiveStopIndex] = useState<number | null>(null);
   const [seenStops, setSeenStops] = useState<Set<number>>(() => new Set());
   const routeKey = useMemo(
@@ -56,6 +54,7 @@ export function RouteCinema({
     [stops, line],
   );
   const canPlay = Boolean(token && line && line.coordinates.length >= 2);
+  const playbackMs = useMemo(() => cinemaPlaybackDurationMs(line), [line]);
 
   const mediaStops = useMemo(
     () =>
@@ -71,11 +70,10 @@ export function RouteCinema({
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setPlaying(false);
-      setProgress(null);
+      setProgress(0);
       setActiveStopIndex(null);
       setSeenStops(new Set());
       if (autoPlay && canPlay) {
-        setProgress(0);
         setPlaying(true);
       }
     }, 0);
@@ -93,7 +91,7 @@ export function RouteCinema({
 
     const tick = (now: number) => {
       const elapsed = now - started;
-      const next = Math.min(1, startProgress + elapsed / PLAYBACK_MS);
+      const next = Math.min(1, startProgress + elapsed / playbackMs);
       setProgress(next);
 
       if (line && mediaStops.length > 0) {
@@ -103,7 +101,7 @@ export function RouteCinema({
             continue;
           }
           const at = progressNearCoordinate(coordinates, stop.lngLat);
-          if (Math.abs(at - next) < 0.028) {
+          if (Math.abs(at - next) < 0.018) {
             setPlaying(false);
             setActiveStopIndex(stop.listIndex);
             setSeenStops((prev) => new Set(prev).add(stop.listIndex));
@@ -122,10 +120,17 @@ export function RouteCinema({
     frame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, activeStopIndex]);
+  }, [playing, activeStopIndex, playbackMs]);
+
+  const activeStop =
+    activeStopIndex == null
+      ? null
+      : (stops.find((s) => s.listIndex === activeStopIndex) ?? null);
+  const activeItinerary =
+    activeStopIndex == null ? null : (itineraryStops[activeStopIndex] ?? null);
 
   const chargeNear = useMemo(() => {
-    if (progress == null || !line) {
+    if (!playing || progress == null || !line) {
       return false;
     }
     const coordinates = line.coordinates as LngLat[];
@@ -136,20 +141,7 @@ export function RouteCinema({
       const at = progressNearCoordinate(coordinates, stop.lngLat);
       return Math.abs(at - progress) < 0.05;
     });
-  }, [progress, line, stops]);
-
-  const activeStop =
-    activeStopIndex == null
-      ? null
-      : (stops.find((s) => s.listIndex === activeStopIndex) ?? null);
-  const activeItinerary =
-    activeStopIndex == null ? null : (itineraryStops[activeStopIndex] ?? null);
-  const media = activeStop
-    ? buildYoutubeEmbedUrl({
-        placeName: activeStop.name,
-        videoId: activeItinerary?.youtubeVideoId,
-      })
-    : null;
+  }, [playing, progress, line, stops]);
 
   return (
     <div className="flex flex-col gap-4" data-testid="route-cinema">
@@ -170,11 +162,11 @@ export function RouteCinema({
             </span>
           </div>
         ) : null}
-        {activeStop && media ? (
+        {activeStop ? (
           <StopMediaOverlay
             title={activeStop.name}
-            embedUrl={media.embedUrl}
-            watchUrl={media.watchUrl}
+            description={activeItinerary?.reason ?? null}
+            videoId={activeItinerary?.youtubeVideoId}
             continueLabel={continueLabel}
             watchPlaceLabel={watchPlaceLabel}
             openYoutubeLabel={openYoutubeLabel}
@@ -199,6 +191,9 @@ export function RouteCinema({
               if (!playing && progress != null && progress >= 1) {
                 setProgress(0);
                 setSeenStops(new Set());
+              }
+              if (!playing && (progress == null || progress === 0)) {
+                setProgress(0);
               }
               setPlaying((value) => !value);
             }}

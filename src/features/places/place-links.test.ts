@@ -24,7 +24,7 @@ describe("place context links", () => {
     expect(links.youtubeUrl).toContain(encodeURIComponent("Local seafood"));
   });
 
-  it("embeds a concrete video id and falls back to watch search", () => {
+  it("embeds a concrete video id and null embed without id", () => {
     const withId = buildYoutubeEmbedUrl({
       placeName: "Pease Park",
       videoId: "dQw4w9WgXcQ",
@@ -32,7 +32,7 @@ describe("place context links", () => {
     expect(withId.embedUrl).toContain("/embed/dQw4w9WgXcQ");
     expect(withId.watchUrl).toContain("watch?v=dQw4w9WgXcQ");
 
-    const noId = buildYoutubeEmbedUrl({ placeName: "Pease Park Austin" });
+    const noId = buildYoutubeEmbedUrl({ placeName: "Asia Cafe Austin" });
     expect(noId.embedUrl).toBeNull();
     expect(noId.watchUrl).toContain("youtube.com/results");
   });

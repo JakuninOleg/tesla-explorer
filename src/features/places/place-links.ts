@@ -35,18 +35,25 @@ export function buildPlaceContextLinks(
   };
 }
 
-/** In-map cinema overlay — prefer concrete video id; search URL as fallback link. */
+/**
+ * Cinema overlay media. Prefer a concrete video id (planner or /api/places/youtube).
+ * Without an id there is no reliable iframe embed (search embeds were removed by YouTube).
+ */
 export function buildYoutubeEmbedUrl(options: {
   videoId?: string | null;
   placeName: string;
+  cityHint?: string;
 }): { embedUrl: string | null; watchUrl: string } {
+  const searchQuery = `${options.placeName}${
+    options.cityHint ? ` ${options.cityHint}` : ""
+  } visit review`;
   const watchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
-    `${options.placeName} short review`,
+    searchQuery,
   )}`;
   const id = options.videoId?.trim();
   if (id && /^[a-zA-Z0-9_-]{6,20}$/.test(id)) {
     return {
-      embedUrl: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`,
+      embedUrl: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0&modestbranding=1`,
       watchUrl: `https://www.youtube.com/watch?v=${id}`,
     };
   }
