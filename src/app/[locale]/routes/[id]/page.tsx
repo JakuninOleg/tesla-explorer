@@ -102,7 +102,7 @@ export default async function RouteDetailPage({
           </p>
         </section>
 
-        <RouteMapSection stops={detail.stops} />
+        <RouteMapSection stops={detail.stops} status={detail.status} />
 
         <section>
           <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">

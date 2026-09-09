@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildStraightLineGeometry,
+  cameraFollowTarget,
   pointAlongLine,
+  poseAlongLine,
   stopsWithCoordinates,
 } from "@/features/map/route-geometry";
 
@@ -52,5 +54,19 @@ describe("route geometry", () => {
     const mid = pointAlongLine(line!.coordinates as [number, number][], 0.5);
     expect(mid?.[0]).toBeCloseTo(-82.45, 2);
     expect(mid?.[1]).toBeCloseTo(27.95, 2);
+  });
+
+  it("returns heading and a follow camera behind the car", () => {
+    const coords: Array<[number, number]> = [
+      [-97.74, 30.27],
+      [-97.74, 30.28],
+    ];
+    const pose = poseAlongLine(coords, 0.5);
+    expect(pose).not.toBeNull();
+    const headingOk = pose!.headingDeg < 10 || pose!.headingDeg > 350;
+    expect(headingOk).toBe(true);
+
+    const cam = cameraFollowTarget(pose!);
+    expect(cam[1]).toBeLessThan(pose!.lngLat[1]);
   });
 });

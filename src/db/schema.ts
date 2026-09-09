@@ -73,6 +73,8 @@ export const profiles = pgTable("profile", {
   workLat: doublePrecision("workLat"),
   workLng: doublePrecision("workLng"),
   household: text("household").$type<"solo" | "family">().notNull(),
+  kidsCount: integer("kidsCount").notNull().default(0),
+  aboutMe: text("aboutMe").notNull().default(""),
   interests: text("interests").notNull(),
   teslaModel: text("teslaModel").notNull(),
   createdAt: timestamp("createdAt", { mode: "date" })

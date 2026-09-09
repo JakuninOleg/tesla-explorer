@@ -4,8 +4,14 @@ import type { LineString } from "geojson";
 import mapboxgl from "mapbox-gl";
 import { useEffect, useRef } from "react";
 import {
+  createCarModelLayer,
+  removeCarModelLayer,
+  type CarModelPose,
+} from "@/features/map/car-model-layer";
+import {
   boundsFromCoordinates,
-  pointAlongLine,
+  cameraFollowTarget,
+  poseAlongLine,
   type LngLat,
   type MappedStop,
 } from "@/features/map/route-geometry";
@@ -18,7 +24,65 @@ export type RouteMapProps = {
   missingTokenLabel: string;
   insufficientStopsLabel: string;
   playProgress?: number | null;
+  /** Full-bleed cinema stage (route page hero). */
+  cinematic?: boolean;
 };
+
+function add3dBuildings(map: mapboxgl.Map) {
+  const layers = map.getStyle()?.layers;
+  if (!layers) {
+    return;
+  }
+  let labelLayerId: string | undefined;
+  for (const layer of layers) {
+    if (
+      layer.type === "symbol" &&
+      layer.layout &&
+      "text-field" in layer.layout
+    ) {
+      labelLayerId = layer.id;
+      break;
+    }
+  }
+
+  if (map.getLayer("tesla-3d-buildings")) {
+    return;
+  }
+
+  map.addLayer(
+    {
+      id: "tesla-3d-buildings",
+      source: "composite",
+      "source-layer": "building",
+      filter: ["==", "extrude", "true"],
+      type: "fill-extrusion",
+      minzoom: 14,
+      paint: {
+        "fill-extrusion-color": "#1c1c1c",
+        "fill-extrusion-height": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          14,
+          0,
+          14.05,
+          ["get", "height"],
+        ],
+        "fill-extrusion-base": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          14,
+          0,
+          14.05,
+          ["get", "min_height"],
+        ],
+        "fill-extrusion-opacity": 0.85,
+      },
+    },
+    labelLayerId,
+  );
+}
 
 export function RouteMap({
   stops,
@@ -27,10 +91,14 @@ export function RouteMap({
   missingTokenLabel,
   insufficientStopsLabel,
   playProgress = null,
+  cinematic = false,
 }: RouteMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const carMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const carLayerRef = useRef<ReturnType<typeof createCarModelLayer> | null>(
+    null,
+  );
+
   useEffect(() => {
     if (!token || !containerRef.current || stops.length === 0) {
       return;
@@ -41,11 +109,14 @@ export function RouteMap({
       container: containerRef.current,
       style: "mapbox://styles/mapbox/dark-v11",
       center: stops[0]!.lngLat,
-      zoom: 10,
+      zoom: cinematic ? 15.5 : 11,
+      pitch: cinematic ? 62 : 45,
+      bearing: 0,
+      antialias: true,
       attributionControl: true,
     });
     map.addControl(
-      new mapboxgl.NavigationControl({ showCompass: false }),
+      new mapboxgl.NavigationControl({ showCompass: true, visualizePitch: true }),
       "top-right",
     );
     mapRef.current = map;
@@ -55,19 +126,31 @@ export function RouteMap({
     const routeLine = line;
     let cancelled = false;
 
+    map.on("style.load", () => {
+      if (cancelled) {
+        return;
+      }
+      try {
+        add3dBuildings(map);
+      } catch {
+        // Style without composite buildings — still fine.
+      }
+    });
+
     map.on("load", () => {
       if (cancelled) {
         return;
       }
+
       for (const stop of mappedStops) {
         const el = document.createElement("div");
         el.className =
-          "flex size-6 items-center justify-center rounded-full border border-white/80 bg-[var(--accent)] text-[10px] font-semibold text-white";
+          "flex size-7 items-center justify-center rounded-full border border-white/80 bg-[var(--accent)] text-xs font-semibold text-white shadow-lg";
         el.textContent = String(stop.listIndex + 1);
         const marker = new mapboxgl.Marker({ element: el })
           .setLngLat(stop.lngLat)
           .setPopup(
-            new mapboxgl.Popup({ offset: 16 }).setText(
+            new mapboxgl.Popup({ offset: 18 }).setText(
               `${stop.name} · ${stop.role}`,
             ),
           )
@@ -81,6 +164,17 @@ export function RouteMap({
           data: { type: "Feature", properties: {}, geometry: routeLine },
         });
         map.addLayer({
+          id: "route-line-glow",
+          type: "line",
+          source: "route-line",
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: {
+            "line-color": "#e31937",
+            "line-width": 10,
+            "line-opacity": 0.25,
+          },
+        });
+        map.addLayer({
           id: "route-line-layer",
           type: "line",
           source: "route-line",
@@ -88,26 +182,40 @@ export function RouteMap({
           paint: {
             "line-color": "#e31937",
             "line-width": 4,
-            "line-opacity": 0.9,
+            "line-opacity": 0.95,
           },
         });
 
-        const bounds = boundsFromCoordinates(routeLine.coordinates as LngLat[]);
-        if (bounds) {
-          map.fitBounds(bounds, { padding: 56, maxZoom: 12, duration: 0 });
+        const coords = routeLine.coordinates as LngLat[];
+        const startPose = poseAlongLine(coords, 0);
+        const carLayer = createCarModelLayer(startPose);
+        carLayerRef.current = carLayer;
+        map.addLayer(carLayer);
+
+        if (!cinematic) {
+          const bounds = boundsFromCoordinates(coords);
+          if (bounds) {
+            map.fitBounds(bounds, {
+              padding: 72,
+              maxZoom: 14,
+              pitch: 50,
+              duration: 0,
+            });
+          }
+        } else if (startPose) {
+          map.jumpTo({
+            center: cameraFollowTarget(startPose),
+            zoom: 16.2,
+            pitch: 64,
+            bearing: startPose.headingDeg,
+          });
         }
       } else {
         const bounds = boundsFromCoordinates(mappedStops.map((s) => s.lngLat));
         if (bounds) {
-          map.fitBounds(bounds, { padding: 56, maxZoom: 12, duration: 0 });
+          map.fitBounds(bounds, { padding: 72, maxZoom: 14, duration: 0 });
         }
       }
-
-      const carEl = document.createElement("div");
-      carEl.className =
-        "size-3 rounded-full bg-white shadow-[0_0_0_3px_rgba(227,25,55,0.85)]";
-      carEl.style.display = "none";
-      carMarkerRef.current = new mapboxgl.Marker({ element: carEl }).addTo(map);
     });
 
     return () => {
@@ -115,36 +223,50 @@ export function RouteMap({
       for (const marker of markers) {
         marker.remove();
       }
-      carMarkerRef.current?.remove();
-      carMarkerRef.current = null;
+      if (carLayerRef.current) {
+        removeCarModelLayer(map);
+        carLayerRef.current = null;
+      }
       map.remove();
       mapRef.current = null;
     };
-  }, [token, stops, line]);
+  }, [token, stops, line, cinematic]);
 
   useEffect(() => {
-    const marker = carMarkerRef.current;
+    const map = mapRef.current;
+    const carLayer = carLayerRef.current;
     const coordinates = line?.coordinates as LngLat[] | undefined;
-    if (!marker || !coordinates || coordinates.length === 0) {
+    if (!map || !coordinates || coordinates.length < 2) {
       return;
     }
 
     if (playProgress == null) {
-      marker.getElement().style.display = "none";
+      carLayer?.setPose(null);
       return;
     }
 
-    const point = pointAlongLine(coordinates, playProgress);
-    if (!point) {
+    const pose = poseAlongLine(coordinates, playProgress);
+    if (!pose) {
       return;
     }
-    marker.getElement().style.display = "block";
-    marker.setLngLat(point);
-  }, [playProgress, line]);
+
+    const carPose: CarModelPose = {
+      lngLat: pose.lngLat,
+      headingDeg: pose.headingDeg,
+    };
+    carLayer?.setPose(carPose);
+
+    map.jumpTo({
+      center: cameraFollowTarget(pose, cinematic ? 48 : 55),
+      zoom: cinematic ? 16.4 : 15.6,
+      pitch: cinematic ? 66 : 58,
+      bearing: pose.headingDeg,
+    });
+  }, [playProgress, line, cinematic]);
 
   if (!token) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-sm border border-border bg-muted px-4 text-center text-sm text-muted-foreground">
+      <div className="flex h-72 items-center justify-center rounded-sm border border-border bg-muted px-4 text-center text-base text-muted-foreground">
         {missingTokenLabel}
       </div>
     );
@@ -152,7 +274,7 @@ export function RouteMap({
 
   if (stops.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-sm border border-border bg-muted px-4 text-center text-sm text-muted-foreground">
+      <div className="flex h-72 items-center justify-center rounded-sm border border-border bg-muted px-4 text-center text-base text-muted-foreground">
         {insufficientStopsLabel}
       </div>
     );
@@ -161,7 +283,11 @@ export function RouteMap({
   return (
     <div
       ref={containerRef}
-      className="h-72 w-full overflow-hidden rounded-sm border border-border md:h-96"
+      className={
+        cinematic
+          ? "h-[min(100dvh,920px)] w-full overflow-hidden bg-black"
+          : "h-80 w-full overflow-hidden rounded-sm border border-border md:h-[28rem]"
+      }
     />
   );
 }

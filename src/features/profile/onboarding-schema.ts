@@ -23,6 +23,8 @@ export const onboardingSchema = z
     workLat: optionalCoord,
     workLng: optionalCoord,
     household: z.enum(["solo", "family"]),
+    kidsCount: z.coerce.number().int().min(0).max(8).default(0),
+    aboutMe: z.string().trim().max(280).optional().default(""),
     interests: z
       .string()
       .trim()
