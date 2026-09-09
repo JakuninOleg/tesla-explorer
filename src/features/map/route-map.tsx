@@ -29,6 +29,9 @@ export type RouteMapProps = {
   playProgress?: number | null;
   /** Full-bleed cinema stage (route page hero). */
   cinematic?: boolean;
+  /** When true, chase-cam sticks to the car; when false, free pan/zoom. */
+  followCamera?: boolean;
+  onStopSelect?: (listIndex: number) => void;
 };
 
 function applyChaseCamera(
@@ -107,6 +110,8 @@ export function RouteMap({
   insufficientStopsLabel,
   playProgress = null,
   cinematic = false,
+  followCamera = true,
+  onStopSelect,
 }: RouteMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -114,6 +119,16 @@ export function RouteMap({
     null,
   );
   const carMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const followCameraRef = useRef(followCamera);
+  const onStopSelectRef = useRef(onStopSelect);
+
+  useEffect(() => {
+    followCameraRef.current = followCamera;
+  }, [followCamera]);
+
+  useEffect(() => {
+    onStopSelectRef.current = onStopSelect;
+  }, [onStopSelect]);
 
   useEffect(() => {
     if (!token || !containerRef.current || stops.length === 0) {
@@ -132,23 +147,22 @@ export function RouteMap({
       attributionControl: true,
       ...(cinematic
         ? {
-            minZoom: 16.5,
+            minZoom: 8,
             maxPitch: 80,
             dragRotate: true,
             pitchWithRotate: true,
           }
         : {}),
     });
-    if (cinematic) {
-      map.scrollZoom.disable();
-      map.dragPan.disable();
-      map.touchPitch.disable();
-    }
+    // Free look always: pan/zoom while the car drives or on pause.
+    map.scrollZoom.enable();
+    map.dragPan.enable();
+    map.touchPitch.enable();
     map.addControl(
       new mapboxgl.NavigationControl({
         showCompass: true,
         visualizePitch: true,
-        showZoom: !cinematic,
+        showZoom: true,
       }),
       "top-right",
     );
@@ -176,15 +190,22 @@ export function RouteMap({
       }
 
       for (const stop of mappedStops) {
-        const el = document.createElement("div");
+        const el = document.createElement("button");
+        el.type = "button";
+        el.setAttribute("aria-label", stop.name);
+        el.dataset.testid = `route-stop-marker-${stop.listIndex}`;
         el.className =
-          "flex size-7 items-center justify-center rounded-full border border-white/80 bg-[var(--accent)] text-xs font-semibold text-white shadow-lg";
+          "flex size-8 cursor-pointer items-center justify-center rounded-full border border-white/80 bg-[var(--accent)] text-xs font-semibold text-white shadow-lg transition-transform hover:scale-110";
         el.textContent = String(stop.listIndex + 1);
+        el.addEventListener("click", (event) => {
+          event.stopPropagation();
+          onStopSelectRef.current?.(stop.listIndex);
+        });
         const marker = new mapboxgl.Marker({ element: el })
           .setLngLat(stop.lngLat)
           .setPopup(
             new mapboxgl.Popup({ offset: 18 }).setText(
-              `${stop.name} · ${stop.role}`,
+              `${stop.name} · ${stop.role} · ${stop.kind}`,
             ),
           )
           .addTo(map);
@@ -250,7 +271,7 @@ export function RouteMap({
               duration: 0,
             });
           }
-        } else if (startPose) {
+        } else if (startPose && followCameraRef.current) {
           applyChaseCamera(map, startPose);
         }
       } else {
@@ -312,10 +333,10 @@ export function RouteMap({
       setCarDomMarkerHeading(el, pose.headingDeg);
     }
 
-    if (cinematic || playProgress != null) {
+    if (followCamera && (cinematic || playProgress != null)) {
       applyChaseCamera(map, pose);
     }
-  }, [playProgress, line, cinematic]);
+  }, [playProgress, line, cinematic, followCamera]);
 
   if (!token) {
     return (

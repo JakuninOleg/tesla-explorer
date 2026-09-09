@@ -1,8 +1,8 @@
 "use client";
 
 import type { LineString } from "geojson";
-import { useEffect, useMemo, useState } from "react";
-import { cinemaPlaybackDurationMs } from "@/features/map/cinema-playback";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { cinemaPlaybackMsAtRate } from "@/features/map/cinema-playback";
 import { RouteMap } from "@/features/map/route-map";
 import {
   progressNearCoordinate,
@@ -11,6 +11,8 @@ import {
 } from "@/features/map/route-geometry";
 import { StopMediaOverlay } from "@/features/places/stop-media-overlay";
 import type { ItineraryStop } from "@/features/routes/itinerary-schema";
+
+const SPEED_OPTIONS = [0.5, 1, 2, 4] as const;
 
 export function RouteCinema({
   stops,
@@ -25,6 +27,10 @@ export function RouteCinema({
   continueLabel,
   watchPlaceLabel,
   openYoutubeLabel,
+  followLabel,
+  freeCamLabel,
+  scrubLabel,
+  speedLabel,
   cinematic = true,
   autoPlay = false,
   itineraryStops = [],
@@ -41,6 +47,10 @@ export function RouteCinema({
   continueLabel: string;
   watchPlaceLabel: string;
   openYoutubeLabel: string;
+  followLabel: string;
+  freeCamLabel: string;
+  scrubLabel: string;
+  speedLabel: string;
   cinematic?: boolean;
   autoPlay?: boolean;
   itineraryStops?: ItineraryStop[];
@@ -49,12 +59,24 @@ export function RouteCinema({
   const [progress, setProgress] = useState<number | null>(0);
   const [activeStopIndex, setActiveStopIndex] = useState<number | null>(null);
   const [seenStops, setSeenStops] = useState<Set<number>>(() => new Set());
+  const [followCamera, setFollowCamera] = useState(true);
+  const [speedRate, setSpeedRate] = useState<(typeof SPEED_OPTIONS)[number]>(1);
+  const [seekEpoch, setSeekEpoch] = useState(0);
+  const progressRef = useRef(0);
+
+  useEffect(() => {
+    progressRef.current = progress ?? 0;
+  }, [progress]);
+
   const routeKey = useMemo(
     () => JSON.stringify({ stops, line }),
     [stops, line],
   );
   const canPlay = Boolean(token && line && line.coordinates.length >= 2);
-  const playbackMs = useMemo(() => cinemaPlaybackDurationMs(line), [line]);
+  const playbackMs = useMemo(
+    () => cinemaPlaybackMsAtRate(line, speedRate),
+    [line, speedRate],
+  );
 
   const mediaStops = useMemo(
     () =>
@@ -73,6 +95,8 @@ export function RouteCinema({
       setProgress(0);
       setActiveStopIndex(null);
       setSeenStops(new Set());
+      setFollowCamera(true);
+      setSpeedRate(1);
       if (autoPlay && canPlay) {
         setPlaying(true);
       }
@@ -87,7 +111,7 @@ export function RouteCinema({
 
     let frame = 0;
     const started = performance.now();
-    const startProgress = progress ?? 0;
+    const startProgress = progressRef.current;
 
     const tick = (now: number) => {
       const elapsed = now - started;
@@ -120,7 +144,7 @@ export function RouteCinema({
     frame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, activeStopIndex, playbackMs]);
+  }, [playing, activeStopIndex, playbackMs, seekEpoch]);
 
   const activeStop =
     activeStopIndex == null
@@ -154,6 +178,12 @@ export function RouteCinema({
           insufficientStopsLabel={insufficientStopsLabel}
           playProgress={progress}
           cinematic={cinematic}
+          followCamera={followCamera}
+          onStopSelect={(listIndex) => {
+            setPlaying(false);
+            setActiveStopIndex(listIndex);
+            setSeenStops((prev) => new Set(prev).add(listIndex));
+          }}
         />
         {chargeNear ? (
           <div className="pointer-events-none absolute inset-0 flex items-start justify-center pt-6">
@@ -180,37 +210,89 @@ export function RouteCinema({
       </div>
 
       {canPlay ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            data-testid="route-cinema-play"
-            className="inline-flex h-12 items-center justify-center rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90"
-            onClick={() => {
-              if (activeStopIndex != null) {
-                return;
-              }
-              if (!playing && progress != null && progress >= 1) {
-                setProgress(0);
-                setSeenStops(new Set());
-              }
-              if (!playing && (progress == null || progress === 0)) {
-                setProgress(0);
-              }
-              setPlaying((value) => !value);
-            }}
-          >
-            {playing
-              ? pauseLabel
-              : progress != null && progress >= 1
-                ? replayLabel
-                : playLabel}
-          </button>
-          <div className="h-1.5 min-w-[8rem] flex-1 overflow-hidden rounded-full bg-muted">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              data-testid="route-cinema-play"
+              className="inline-flex h-12 items-center justify-center rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90"
+              onClick={() => {
+                if (activeStopIndex != null) {
+                  return;
+                }
+                if (!playing && progress != null && progress >= 1) {
+                  setProgress(0);
+                  setSeenStops(new Set());
+                }
+                if (!playing && (progress == null || progress === 0)) {
+                  setProgress(0);
+                }
+                setPlaying((value) => !value);
+              }}
+            >
+              {playing
+                ? pauseLabel
+                : progress != null && progress >= 1
+                  ? replayLabel
+                  : playLabel}
+            </button>
+            <button
+              type="button"
+              data-testid="route-cinema-follow"
+              className={`inline-flex h-12 items-center justify-center rounded-sm border px-4 text-sm font-semibold tracking-[0.12em] uppercase transition-colors ${
+                followCamera
+                  ? "border-accent text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setFollowCamera((value) => !value)}
+            >
+              {followCamera ? followLabel : freeCamLabel}
+            </button>
             <div
-              className="h-full origin-left bg-accent transition-transform duration-75"
-              style={{ transform: `scaleX(${progress ?? 0})` }}
-            />
+              className="flex items-center gap-1"
+              role="group"
+              aria-label={speedLabel}
+            >
+              {SPEED_OPTIONS.map((rate) => (
+                <button
+                  key={rate}
+                  type="button"
+                  data-testid={`route-cinema-speed-${rate}`}
+                  className={`inline-flex h-10 min-w-12 items-center justify-center rounded-sm border px-2 text-sm transition-colors ${
+                    speedRate === rate
+                      ? "border-accent text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                  onClick={() => {
+                    setSpeedRate(rate);
+                    if (playing) {
+                      setSeekEpoch((n) => n + 1);
+                    }
+                  }}
+                >
+                  {rate}×
+                </button>
+              ))}
+            </div>
           </div>
+          <label className="flex flex-col gap-2">
+            <span className="sr-only">{scrubLabel}</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.001}
+              value={progress ?? 0}
+              data-testid="route-cinema-scrubber"
+              aria-label={scrubLabel}
+              className="h-2 w-full cursor-pointer accent-[var(--accent)]"
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                setProgress(next);
+                setSeekEpoch((n) => n + 1);
+              }}
+            />
+          </label>
         </div>
       ) : null}
     </div>

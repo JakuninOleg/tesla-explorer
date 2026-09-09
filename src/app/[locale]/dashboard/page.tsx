@@ -101,6 +101,12 @@ export default async function DashboardPage({
                 work: shortenAddress(profile.workAddress),
               })}
             </p>
+            <Link
+              href="/onboarding"
+              className="mt-3 inline-flex text-sm font-medium tracking-[0.08em] text-accent underline-offset-4 hover:underline"
+            >
+              {t("editAnchors")}
+            </Link>
           </div>
         </section>
 

@@ -50,8 +50,12 @@ export default async function OnboardingPage({
       </header>
 
       <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-6 py-12 md:px-10">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t("title")}</h1>
-        <p className="mt-4 text-base leading-relaxed text-muted-foreground">{t("intro")}</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+          {profile ? t("titleEdit") : t("title")}
+        </h1>
+        <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+          {profile ? t("introEdit") : t("intro")}
+        </p>
         <OnboardingForm initialProfile={profile} />
         {profile ? (
           <Link

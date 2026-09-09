@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildChatGreeting,
   buildChatSystemPrompt,
   buildForceItinerarySystemPrompt,
   buildPlanSystemPrompt,
@@ -56,8 +57,34 @@ describe("plan prompt builder", () => {
     expect(prompt).toContain("RANGE BUDGET (FACT");
     expect(prompt).toContain("Avoid loud malls");
     expect(buildPlanSystemPrompt()).toMatch(/do not invent a different/i);
+    expect(buildPlanSystemPrompt("en")).toMatch(/in English/i);
+    expect(buildPlanSystemPrompt("ru")).toMatch(/in Russian/i);
+    expect(buildChatSystemPrompt("ru")).toMatch(/in Russian/i);
+    expect(buildForceItinerarySystemPrompt("en")).toMatch(/in English/i);
     expect(buildChatSystemPrompt()).toMatch(/JSON ONLY/i);
     expect(buildForceItinerarySystemPrompt()).toMatch(/JSON only/i);
+  });
+
+  it("greets in the UI locale", () => {
+    const profile = {
+      homeAddress: "12 Oak St, Tampa, FL",
+      homeLat: null,
+      homeLng: null,
+      workAddress: "100 Office Blvd, Tampa, FL",
+      workLat: null,
+      workLng: null,
+      household: "solo" as const,
+      kidsCount: 0,
+      aboutMe: "",
+      interests: "parks",
+      teslaModel: "Model 3",
+    };
+    expect(
+      buildChatGreeting({ displayName: "Alex", profile, locale: "en" }),
+    ).toMatch(/co-pilot/i);
+    expect(
+      buildChatGreeting({ displayName: "Alex", profile, locale: "ru" }),
+    ).toMatch(/ко-пилот/i);
   });
 });
 

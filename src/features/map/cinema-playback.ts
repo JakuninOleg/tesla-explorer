@@ -20,7 +20,7 @@ export function cinemaPlaybackDurationMs(line: LineString | null): number {
 
 /**
  * Chase cam via jumpTo (reliable with Three custom layers).
- * FreeCamera was dropped — it made the WebGL car disappear in prod.
+ * Free look = Mapbox pan/zoom enabled while chase is optional (followCamera).
  */
 export const CINEMA_FOLLOW = {
   behindMeters: 12,
@@ -28,3 +28,12 @@ export const CINEMA_FOLLOW = {
   pitch: 62,
   idleZoom: 18.75,
 } as const;
+
+/** Effective cinema duration after a playback rate multiplier (0.5× … 4×). */
+export function cinemaPlaybackMsAtRate(
+  line: LineString | null,
+  rate: number,
+): number {
+  const safeRate = Number.isFinite(rate) && rate > 0 ? rate : 1;
+  return Math.max(1_000, Math.round(cinemaPlaybackDurationMs(line) / safeRate));
+}

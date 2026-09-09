@@ -1,6 +1,7 @@
 import type { OnboardingInput } from "@/features/profile/onboarding-schema";
 import type { PlanRouteInput } from "@/features/routes/itinerary-schema";
 import type { RangeBudget } from "@/features/routes/tesla-range";
+import type { Locale } from "@/i18n/routing";
 
 export type PastRouteMemory = {
   title: string;
@@ -15,7 +16,15 @@ export type ChatTurn = {
   content: string;
 };
 
-export function buildPlanSystemPrompt(): string {
+/** Force title/summary/reason language to match the UI locale. */
+export function itineraryLanguageDirective(locale: Locale = "en"): string {
+  if (locale === "ru") {
+    return "Write title, summary, and every stop reason in Russian. Place names may stay in local English/US form.";
+  }
+  return "Write title, summary, and every stop reason in English. Place names may stay in local English/US form.";
+}
+
+export function buildPlanSystemPrompt(locale: Locale = "en"): string {
   return [
     "You are Tesla Explorer's route planner for leisure drives in the USA.",
     "Respect the driver's Home and Work anchors as real addresses.",
@@ -23,6 +32,7 @@ export function buildPlanSystemPrompt(): string {
     "Use the injected range budget as FACT — do not invent a different Wh/mi or total range.",
     "If planned driving would exceed the budget, include a Supercharger (role charge) or shorten explore legs.",
     "Mark each stop role as must | explore | charge.",
+    itineraryLanguageDirective(locale),
     "Respond with JSON only — no markdown — matching:",
     '{"title":"string","summary":"string","stops":[{"name":"string","kind":"scenic|food|charge|activity|viewpoint|other|anchor","role":"must|explore|charge","reason":"string","approxMinutes":number,"approxDriveMiles":number,"lat":number?,"lng":number?,"youtubeVideoId":"11-char id when known"}]}',
     "Include 2–8 stops. approxDriveMiles is miles driven TO that stop from the previous point (0 for the start).",
@@ -32,12 +42,13 @@ export function buildPlanSystemPrompt(): string {
   ].join(" ");
 }
 
-export function buildChatSystemPrompt(): string {
+export function buildChatSystemPrompt(locale: Locale = "en"): string {
   return [
     "You are the driver's personal leisure-route co-pilot inside Tesla Explorer.",
     "You already know their home, work, Tesla model, household, kids, and about-me notes from context.",
     "Hours available, battery %, and start anchor are provided in DRIVER CONTEXT — never ask for them again.",
     "Speak briefly. Do NOT write long prose itineraries in chat.",
+    itineraryLanguageDirective(locale),
     "As soon as the driver states what they want (food, kids, water, vibe, etc.), respond with itinerary JSON ONLY — no markdown fences, no intro text.",
     "JSON shape:",
     '{"title":"string","summary":"string","stops":[{"name":"string","kind":"scenic|food|charge|activity|viewpoint|other|anchor","role":"must|explore|charge","reason":"string","approxMinutes":number,"approxDriveMiles":number,"lat":number,"lng":number,"youtubeVideoId":"optional"}]}',
@@ -48,11 +59,12 @@ export function buildChatSystemPrompt(): string {
   ].join(" ");
 }
 
-export function buildForceItinerarySystemPrompt(): string {
+export function buildForceItinerarySystemPrompt(locale: Locale = "en"): string {
   return [
     "Convert the conversation into ONE itinerary JSON object now.",
     "No prose. No markdown. JSON only, matching:",
     '{"title":"string","summary":"string","stops":[{"name":"string","kind":"scenic|food|charge|activity|viewpoint|other|anchor","role":"must|explore|charge","reason":"string","approxMinutes":number,"approxDriveMiles":number,"lat":number,"lng":number}]}',
+    itineraryLanguageDirective(locale),
     "2–8 stops with USA lat/lng. Use DRIVER CONTEXT start/home/work and RANGE BUDGET.",
   ].join(" ");
 }
@@ -188,10 +200,17 @@ export function buildPlanUserPrompt(options: {
 export function buildChatGreeting(options: {
   displayName: string;
   profile: OnboardingInput;
+  locale?: Locale;
 }): string {
+  const kidsCount = options.profile.kidsCount ?? 0;
+  if (options.locale === "ru") {
+    const kids =
+      kidsCount > 0
+        ? ` Вижу ${kidsCount} ребёнк(а/ов) в салоне.`
+        : "";
+    return `Привет, ${options.displayName} — я ваш ко-пилот. Вы в ${options.profile.teslaModel}.${kids} Напишите, чего хотите от поездки (еда, виды, энергия с детьми). Часы, заряд и старт дом/работа уже в панели ниже — я соберу маршрут для 3D-карты.`;
+  }
   const kids =
-    (options.profile.kidsCount ?? 0) > 0
-      ? ` I see ${options.profile.kidsCount} kid(s) in the cabin.`
-      : "";
-  return `Hey ${options.displayName} — ready when you are. You're in a ${options.profile.teslaModel}.${kids} Tell me the vibe (food, views, kids energy), roughly how many hours you have, and whether we start from home or work. I'll craft a route you can approve and play on the 3D map.`;
+    kidsCount > 0 ? ` I see ${kidsCount} kid(s) in the cabin.` : "";
+  return `Hey ${options.displayName} — I'm your route co-pilot. You're in a ${options.profile.teslaModel}.${kids} Tell me the vibe (food, views, kids energy). Hours, battery, and home/work start are already set below — I'll craft a route you can approve and play on the 3D map.`;
 }

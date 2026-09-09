@@ -42,6 +42,10 @@ export async function RouteMapSection({
           continueLabel={t("cinemaContinue")}
           watchPlaceLabel={t("cinemaWatchPlace")}
           openYoutubeLabel={t("placeYoutube")}
+          followLabel={t("cinemaFollow")}
+          freeCamLabel={t("cinemaFreeCam")}
+          scrubLabel={t("cinemaScrub")}
+          speedLabel={t("cinemaSpeed")}
           cinematic={cinematic}
           autoPlay={status === "approved"}
           itineraryStops={stops}
