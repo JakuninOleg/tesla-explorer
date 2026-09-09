@@ -158,6 +158,7 @@ export function RouteMap({
         markers.push(marker);
       }
 
+      let carReady = false;
       if (routeLine && routeLine.coordinates.length >= 2) {
         map.addSource("route-line", {
           type: "geojson",
@@ -191,6 +192,7 @@ export function RouteMap({
         const carLayer = createCarModelLayer(startPose);
         carLayerRef.current = carLayer;
         map.addLayer(carLayer);
+        carReady = Boolean(map.getLayer(carLayer.id));
 
         if (!cinematic) {
           const bounds = boundsFromCoordinates(coords);
@@ -215,6 +217,13 @@ export function RouteMap({
         if (bounds) {
           map.fitBounds(bounds, { padding: 72, maxZoom: 14, duration: 0 });
         }
+      }
+
+      const root = containerRef.current;
+      if (root) {
+        root.dataset.mapReady = "true";
+        root.dataset.carLayer = carReady ? "true" : "false";
+        root.dataset.stopMarkers = String(markers.length);
       }
     });
 
@@ -283,6 +292,7 @@ export function RouteMap({
   return (
     <div
       ref={containerRef}
+      data-testid="route-map"
       className={
         cinematic
           ? "h-[min(100dvh,920px)] w-full overflow-hidden bg-black"

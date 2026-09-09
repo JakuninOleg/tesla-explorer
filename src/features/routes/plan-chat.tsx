@@ -39,7 +39,7 @@ export function PlanChat({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" data-testid="plan-chat">
       <div className="flex flex-wrap gap-2">
         {(
           [
@@ -171,15 +171,21 @@ export function PlanChat({
         }}
       >
         <textarea
+          data-testid="plan-chat-input"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           rows={3}
           placeholder={t("chatPlaceholder")}
           className="w-full rounded-sm border border-border bg-muted px-4 py-3 text-base text-foreground outline-none focus:border-foreground/40"
         />
-        {error ? <p className="text-base text-danger">{error}</p> : null}
+        {error ? (
+          <p className="text-base text-danger" data-testid="plan-chat-error">
+            {error}
+          </p>
+        ) : null}
         <button
           type="submit"
+          data-testid="plan-chat-send"
           disabled={pending || draft.trim().length < 2}
           className="inline-flex h-12 items-center justify-center rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90 disabled:opacity-60"
         >
