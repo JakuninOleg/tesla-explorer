@@ -51,7 +51,7 @@ export default async function RouteDetailPage({
       <header className="flex items-center justify-between gap-3 border-b border-border px-6 py-5 md:px-10">
         <Link
           href="/dashboard"
-          className="text-[0.7rem] font-semibold tracking-[0.28em] text-foreground uppercase"
+          className="text-sm font-semibold tracking-[0.28em] text-foreground uppercase"
         >
           {tHome("brand")}
         </Link>
@@ -65,37 +65,37 @@ export default async function RouteDetailPage({
         <section>
           <Link
             href="/dashboard"
-            className="text-xs tracking-[0.16em] text-muted-foreground uppercase transition-colors hover:text-foreground"
+            className="text-sm tracking-[0.16em] text-muted-foreground uppercase transition-colors hover:text-foreground"
           >
             {t("back")}
           </Link>
-          <p className="mt-4 text-xs tracking-[0.14em] text-muted-foreground uppercase">
+          <p className="mt-4 text-sm tracking-[0.14em] text-muted-foreground uppercase">
             {t(`status.${detail.status}`)}
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
+          <h1 className="mt-2 text-4xl font-semibold tracking-tight text-foreground">
             {detail.title}
           </h1>
           {detail.summary ? (
-            <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
+            <p className="mt-3 max-w-2xl text-lg leading-relaxed text-muted-foreground">
               {detail.summary}
             </p>
           ) : null}
-          <p className="mt-4 text-sm text-muted-foreground">
+          <p className="mt-4 text-base text-muted-foreground">
             {t("meta", {
               hours: detail.availableHours,
               battery: detail.batteryPercent,
             })}
           </p>
           {detail.rangeBudgetMiles != null ? (
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-base text-muted-foreground">
               {t("rangeBudget", { miles: detail.rangeBudgetMiles })}
             </p>
           ) : null}
           {detail.rangeWarning ? (
-            <p className="mt-2 text-sm text-danger">{detail.rangeWarning}</p>
+            <p className="mt-2 text-base text-danger">{detail.rangeWarning}</p>
           ) : null}
-          <p className="mt-4 max-w-2xl text-sm text-foreground/80">
-            <span className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+          <p className="mt-4 max-w-2xl text-base text-foreground/80">
+            <span className="text-sm tracking-[0.14em] text-muted-foreground uppercase">
               {t("request")}
             </span>
             <span className="mt-1 block">{detail.requestPrompt}</span>
@@ -105,25 +105,28 @@ export default async function RouteDetailPage({
         <RouteMapSection stops={detail.stops} status={detail.status} />
 
         <section>
-          <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+          <h2 className="text-sm font-medium tracking-[0.18em] text-muted-foreground uppercase">
             {t("stops")}
           </h2>
           <ol className="mt-4 space-y-6">
             {detail.stops.map((stop, index) => {
               const place = buildPlaceContextLinks(stop);
               return (
-                <li key={`${stop.name}-${index}`} className="border-l border-border pl-4">
-                  <p className="text-sm font-medium text-foreground">
+                <li
+                  key={`${stop.name}-${index}`}
+                  className="border-l border-border pl-4"
+                >
+                  <p className="text-base font-medium text-foreground">
                     {index + 1}. {stop.name}
                   </p>
-                  <p className="mt-1 text-xs tracking-[0.12em] text-muted-foreground uppercase">
+                  <p className="mt-1 text-sm tracking-[0.12em] text-muted-foreground uppercase">
                     {stop.role} · {stop.kind} ·{" "}
                     {t("minutes", { count: stop.approxMinutes })}
                     {stop.approxDriveMiles != null
                       ? ` · ${t("miles", { count: stop.approxDriveMiles })}`
                       : null}
                   </p>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  <p className="mt-2 text-base leading-relaxed text-muted-foreground">
                     {stop.reason}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-3">
@@ -131,7 +134,7 @@ export default async function RouteDetailPage({
                       href={place.mapsUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs tracking-[0.12em] text-accent uppercase transition-opacity hover:opacity-80"
+                      className="text-sm tracking-[0.12em] text-accent uppercase transition-opacity hover:opacity-80"
                     >
                       {t("placeMaps")}
                     </a>
@@ -139,7 +142,7 @@ export default async function RouteDetailPage({
                       href={place.youtubeUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs tracking-[0.12em] text-accent uppercase transition-opacity hover:opacity-80"
+                      className="text-sm tracking-[0.12em] text-accent uppercase transition-opacity hover:opacity-80"
                     >
                       {t("placeYoutube")}
                     </a>
@@ -152,10 +155,12 @@ export default async function RouteDetailPage({
 
         {detail.status === "proposed" ? (
           <section>
-            <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+            <h2 className="text-sm font-medium tracking-[0.18em] text-muted-foreground uppercase">
               {t("decision")}
             </h2>
-            <p className="mt-3 text-sm text-muted-foreground">{t("decisionIntro")}</p>
+            <p className="mt-3 text-base text-muted-foreground">
+              {t("decisionIntro")}
+            </p>
             <div className="mt-6">
               <RouteDecisionPanel
                 routeId={detail.id}
@@ -173,10 +178,12 @@ export default async function RouteDetailPage({
 
         {detail.status === "approved" ? (
           <section>
-            <h2 className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
+            <h2 className="text-sm font-medium tracking-[0.18em] text-muted-foreground uppercase">
               {t("feedback")}
             </h2>
-            <p className="mt-3 text-sm text-muted-foreground">{t("feedbackIntro")}</p>
+            <p className="mt-3 text-base text-muted-foreground">
+              {t("feedbackIntro")}
+            </p>
             <div className="mt-6">
               <RateRouteForm
                 routeId={detail.id}
