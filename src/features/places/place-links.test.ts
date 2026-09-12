@@ -35,6 +35,7 @@ describe("place context links", () => {
     const noId = buildYoutubeEmbedUrl({ placeName: "Asia Cafe Austin" });
     expect(noId.embedUrl).toBeNull();
     expect(noId.watchUrl).toContain("youtube.com/results");
-    expect(noId.watchUrl).toContain(encodeURIComponent("#shorts"));
+    expect(decodeURIComponent(noId.watchUrl)).toContain('"Asia Cafe Austin"');
+    expect(decodeURIComponent(noId.watchUrl)).toMatch(/review|visit|tour/i);
   });
 });
