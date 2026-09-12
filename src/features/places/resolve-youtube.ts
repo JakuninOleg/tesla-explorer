@@ -1,7 +1,9 @@
 /**
- * Resolve a place name to a YouTube Short id for in-app embed.
- * Prefers YOUTUBE_API_KEY (Data API v3) with location bias + short duration;
- * falls back to InnerTube guest search with a locality + #shorts query.
+ * Resolve a stop to a YouTube video that is ABOUT that place — not nearby
+ * ambient clips (diver at a dam ≠ Mansfield Dam Park walk with kids).
+ *
+ * Strategy: quoted place-name queries → score titles that contain the place →
+ * reject off-topic / death content. Prefer empty embed over a wrong clip.
  */
 
 const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{6,20}$/;
@@ -10,90 +12,307 @@ export function isYoutubeVideoId(value: string): boolean {
   return VIDEO_ID_RE.test(value);
 }
 
-/** Geo-qualified Shorts search — "Asia Cafe" alone must not resolve to another state. */
+/** Only grammatical fluff — keep park/lake/dam as required place tokens. */
+const QUERY_STOPWORDS = new Set([
+  "the",
+  "and",
+  "for",
+  "with",
+  "near",
+  "at",
+]);
+
+const REJECT_GLOBAL_RE =
+  /\b(funeral|funerals|burial|buried|cemetery|grave|graves|obituary|obituaries|memorial\s+service|died|death|mourning|cremation|cremated|wake\s+service|rip\b|rest\s+in\s+peace|погреб|похорон|отпеван|кладбищ|скончал|умерл)\b/i;
+
+/** Nearby water sports ≠ walking a park / playground stop. */
+const REJECT_LAND_VISIT_RE =
+  /\b(scuba|scuba[\s-]?diving|diving|diver|divers|underwater|snorkeling|snorkel|freediving|wreck\s+dive|spearfishing)\b/i;
+
+const PLACE_VISIT_BONUS_RE =
+  /\b(review|reviews|food|restaurant|restaurants|cafe|café|dining|menu|taste|tasting|mukbang|eat|eats|tour|tours|visit|visited|walking|walkthrough|stroll|playground|family|kids|vlog|hike|trail)\b/i;
+
+export type YoutubePlaceKind =
+  | "scenic"
+  | "food"
+  | "charge"
+  | "activity"
+  | "viewpoint"
+  | "other"
+  | "anchor";
+
+export function placeYoutubeIntentTerms(kind?: YoutubePlaceKind | null): string {
+  switch (kind) {
+    case "food":
+      return "restaurant food review tasting";
+    case "scenic":
+    case "viewpoint":
+      return "walking tour walkthrough stroll visit";
+    case "activity":
+      return "walking tour playground family visit";
+    default:
+      return "walking tour visit review";
+  }
+}
+
+export function significantPlaceTokens(placeName: string): string[] {
+  return placeName
+    .toLowerCase()
+    .split(/[^a-z0-9а-яё]+/i)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 3 && !QUERY_STOPWORDS.has(t));
+}
+
+/**
+ * Ordered queries — exact place name first, then slightly looser.
+ * Geo bias is applied via Data API location params, not as the relevance signal.
+ */
+export function buildPlaceYoutubeQueries(options: {
+  placeName: string;
+  locality?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  kind?: YoutubePlaceKind | null;
+}): string[] {
+  const name = options.placeName.trim().slice(0, 80);
+  if (name.length < 2) {
+    return [];
+  }
+  const locality = options.locality?.trim().slice(0, 48) || null;
+  const intent = placeYoutubeIntentTerms(options.kind);
+  const quoted = `"${name}"`;
+  const where =
+    locality ??
+    (typeof options.lat === "number" &&
+    typeof options.lng === "number" &&
+    Number.isFinite(options.lat) &&
+    Number.isFinite(options.lng)
+      ? `${options.lat.toFixed(2)},${options.lng.toFixed(2)}`
+      : null);
+
+  const raw: string[] = [];
+  if (where) {
+    raw.push(`${quoted} ${where} ${intent}`);
+    raw.push(`${quoted} ${where} walkthrough`);
+    raw.push(`${name} ${where} ${intent}`);
+  } else {
+    raw.push(`${quoted} ${intent}`);
+    raw.push(`${quoted} walkthrough`);
+    raw.push(`${name} ${intent}`);
+  }
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const q of raw) {
+    const clipped = q.replace(/\s+/g, " ").trim().slice(0, 120);
+    const key = clipped.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(clipped);
+    }
+  }
+  return out;
+}
+
+/** @deprecated prefer buildPlaceYoutubeQueries — kept for call sites / tests */
 export function buildLocalYoutubeSearchQuery(options: {
   placeName: string;
   locality?: string | null;
   lat?: number | null;
   lng?: number | null;
+  kind?: YoutubePlaceKind | null;
 }): string {
-  const name = options.placeName.trim().slice(0, 80);
-  const locality = options.locality?.trim().slice(0, 60);
-  const parts = [name];
-  if (locality) {
-    parts.push(locality);
-  } else if (
-    typeof options.lat === "number" &&
-    typeof options.lng === "number" &&
-    Number.isFinite(options.lat) &&
-    Number.isFinite(options.lng)
-  ) {
-    parts.push(`${options.lat.toFixed(2)},${options.lng.toFixed(2)}`);
+  return (
+    buildPlaceYoutubeQueries(options)[0] ??
+    `${options.placeName.trim()} ${placeYoutubeIntentTerms(options.kind)}`
+  );
+}
+
+export type YoutubeCandidate = {
+  videoId: string;
+  title: string;
+  description?: string;
+};
+
+export function isRejectedYoutubeTitle(
+  title: string,
+  kind?: YoutubePlaceKind | null,
+): boolean {
+  if (REJECT_GLOBAL_RE.test(title)) {
+    return true;
   }
-  // Prefer vertical Shorts over long form travel vlogs.
-  parts.push("#shorts");
-  return parts.join(" ").slice(0, 120);
+  if (
+    kind === "scenic" ||
+    kind === "viewpoint" ||
+    kind === "activity" ||
+    kind === "other" ||
+    kind == null
+  ) {
+    if (REJECT_LAND_VISIT_RE.test(title)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Score for in-app embed. Null = wrong place / off-topic — do not show.
+ * Place identity must appear in the TITLE (description SEO spam is ignored).
+ */
+export function scoreYoutubeCandidate(
+  candidate: YoutubeCandidate,
+  placeName: string,
+  kind?: YoutubePlaceKind | null,
+): number | null {
+  const title = candidate.title.trim();
+  if (!title) {
+    return null;
+  }
+  const titleLower = title.toLowerCase();
+  const descLower = (candidate.description ?? "").toLowerCase();
+  if (
+    isRejectedYoutubeTitle(titleLower, kind) ||
+    isRejectedYoutubeTitle(descLower, kind)
+  ) {
+    return null;
+  }
+
+  const normalizedPlace = placeName.toLowerCase().replace(/\s+/g, " ").trim();
+  const tokens = significantPlaceTokens(placeName);
+  const titleHasFullName =
+    normalizedPlace.length >= 3 && titleLower.includes(normalizedPlace);
+
+  if (tokens.length === 0) {
+    return titleHasFullName ? 10 : null;
+  }
+
+  const titleMatched = tokens.filter((t) => titleLower.includes(t)).length;
+  // Hard gate: every meaningful token of the place must be in the title,
+  // or the full place name as a phrase. Description-only matches are rejected
+  // (nearby dam dive can SEO-mention a park in the description).
+  if (!titleHasFullName && titleMatched < tokens.length) {
+    return null;
+  }
+
+  let score = titleHasFullName ? 25 : titleMatched * 6;
+  if (PLACE_VISIT_BONUS_RE.test(titleLower)) {
+    score += 4;
+  }
+  // Tiny hint from description only after title already qualified.
+  if (tokens.every((t) => descLower.includes(t))) {
+    score += 1;
+  }
+  return score;
+}
+
+export function pickBestYoutubeCandidate(
+  candidates: YoutubeCandidate[],
+  placeName: string,
+  kind?: YoutubePlaceKind | null,
+): string | null {
+  let bestId: string | null = null;
+  let bestScore = -1;
+  for (const candidate of candidates) {
+    if (!isYoutubeVideoId(candidate.videoId)) {
+      continue;
+    }
+    const score = scoreYoutubeCandidate(candidate, placeName, kind);
+    if (score == null) {
+      continue;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestId = candidate.videoId;
+    }
+  }
+  return bestId;
 }
 
 type DataApiSearch = {
-  items?: Array<{ id?: { videoId?: string } }>;
+  items?: Array<{
+    id?: { videoId?: string };
+    snippet?: { title?: string; description?: string };
+  }>;
 };
 
 export type ResolveYoutubeOptions = {
   fetchImpl?: typeof fetch;
-  /** WGS84 — biases Data API results to nearby videos. */
+  placeName?: string;
+  kind?: YoutubePlaceKind | null;
+  locality?: string | null;
   lat?: number | null;
   lng?: number | null;
-  /** Radius for Data API location filter, e.g. "40km". */
   locationRadius?: string;
-  /** Prefer Shorts / sub-4-minute clips (default true). */
   preferShorts?: boolean;
+  /** Extra search strings; default built from placeName + locality + kind. */
+  queries?: string[];
+  /** Ask Go-Ai to choose among eligible candidates (default true). */
+  useAiPick?: boolean;
 };
 
-function firstVideoId(body: DataApiSearch): string | null {
+function candidatesFromDataApi(body: DataApiSearch): YoutubeCandidate[] {
+  const out: YoutubeCandidate[] = [];
   for (const item of body.items ?? []) {
     const id = item.id?.videoId;
-    if (id && isYoutubeVideoId(id)) {
-      return id;
+    if (!id || !isYoutubeVideoId(id)) {
+      continue;
     }
+    out.push({
+      videoId: id,
+      title: item.snippet?.title ?? "",
+      description: item.snippet?.description ?? "",
+    });
   }
-  return null;
+  return out;
 }
 
-async function searchDataApi(
+async function searchDataApiCandidates(
   apiKey: string,
   query: string,
   fetchImpl: typeof fetch,
   extras: Record<string, string>,
-): Promise<string | null> {
+): Promise<YoutubeCandidate[]> {
   const url = new URL("https://www.googleapis.com/youtube/v3/search");
   url.searchParams.set("part", "snippet");
   url.searchParams.set("type", "video");
-  url.searchParams.set("maxResults", "8");
+  url.searchParams.set("maxResults", "15");
   url.searchParams.set("q", query);
   url.searchParams.set("key", apiKey);
-  url.searchParams.set("safeSearch", "moderate");
+  url.searchParams.set("safeSearch", "strict");
   url.searchParams.set("order", "relevance");
   for (const [key, value] of Object.entries(extras)) {
     url.searchParams.set(key, value);
   }
   const res = await fetchImpl(url.toString());
   if (!res.ok) {
-    return null;
+    return [];
   }
   const body = (await res.json()) as DataApiSearch;
-  return firstVideoId(body);
+  return candidatesFromDataApi(body);
 }
 
-export async function resolveYoutubeVideoId(
-  query: string,
+function mergeCandidates(
+  into: Map<string, YoutubeCandidate>,
+  list: YoutubeCandidate[],
+): void {
+  for (const candidate of list) {
+    if (!into.has(candidate.videoId)) {
+      into.set(candidate.videoId, candidate);
+    }
+  }
+}
+
+/** Gather unique YouTube hits for a place (Data API + optional InnerTube). */
+export async function collectYoutubePlaceCandidates(
+  queryOrPlace: string,
   options?: ResolveYoutubeOptions,
-): Promise<string | null> {
-  const q = query.trim().slice(0, 120);
-  if (q.length < 2) {
-    return null;
+): Promise<YoutubeCandidate[]> {
+  const placeName = (options?.placeName ?? queryOrPlace).trim().slice(0, 80);
+  if (placeName.length < 2) {
+    return [];
   }
 
+  const kind = options?.kind ?? null;
   const fetchImpl = options?.fetchImpl ?? fetch;
   const preferShorts = options?.preferShorts !== false;
   const apiKey = process.env.YOUTUBE_API_KEY?.trim();
@@ -105,52 +324,161 @@ export async function resolveYoutubeVideoId(
     Number.isFinite(lat) &&
     Number.isFinite(lng);
 
-  const locationExtras: Record<string, string> = hasLocation
-    ? {
-        location: `${lat},${lng}`,
-        locationRadius: options?.locationRadius ?? "50km",
-      }
-    : {};
+  const queries =
+    options?.queries?.length && options.queries.length > 0
+      ? [...options.queries]
+      : buildPlaceYoutubeQueries({
+          placeName,
+          locality: options?.locality,
+          lat,
+          lng,
+          kind,
+        });
 
-  if (apiKey) {
-    try {
-      // 1) Local Shorts / short clips
-      if (preferShorts) {
-        const shortLocal = await searchDataApi(apiKey, q, fetchImpl, {
-          ...locationExtras,
-          videoDuration: "short",
-        });
-        if (shortLocal) {
-          return shortLocal;
-        }
-        // 2) Shorts without geo (still #shorts in query)
-        const shortAny = await searchDataApi(apiKey, q, fetchImpl, {
-          videoDuration: "short",
-        });
-        if (shortAny) {
-          return shortAny;
-        }
-      }
-      // 3) Any local video
-      const local = await searchDataApi(apiKey, q, fetchImpl, locationExtras);
-      if (local) {
-        return local;
-      }
-      // 4) Any video for the query
-      const any = await searchDataApi(apiKey, q, fetchImpl, {});
-      if (any) {
-        return any;
-      }
-    } catch {
-      // fall through to InnerTube
+  if (
+    (!options?.queries || options.queries.length === 0) &&
+    queryOrPlace.trim() !== placeName &&
+    queryOrPlace.trim().length >= 2
+  ) {
+    const legacy = queryOrPlace.trim().slice(0, 120);
+    if (!queries.includes(legacy)) {
+      queries.unshift(legacy);
     }
   }
 
-  return resolveViaInnerTube(q, fetchImpl);
+  const locationExtras: Record<string, string> = hasLocation
+    ? {
+        location: `${lat},${lng}`,
+        locationRadius: options?.locationRadius ?? "25km",
+      }
+    : {};
+
+  const byId = new Map<string, YoutubeCandidate>();
+
+  if (apiKey) {
+    try {
+      const attemptExtras: Record<string, string>[] = [];
+      if (preferShorts && hasLocation) {
+        attemptExtras.push({ ...locationExtras, videoDuration: "short" });
+      }
+      if (preferShorts) {
+        attemptExtras.push({ videoDuration: "short" });
+      }
+      attemptExtras.push(
+        hasLocation
+          ? { ...locationExtras, videoDuration: "medium" }
+          : { videoDuration: "medium" },
+      );
+
+      // Cap fan-out: first 2 queries × attempts, stop early when we have enough.
+      for (const q of queries.slice(0, 2)) {
+        for (const extras of attemptExtras) {
+          const batch = await searchDataApiCandidates(
+            apiKey,
+            q,
+            fetchImpl,
+            extras,
+          );
+          mergeCandidates(byId, batch);
+          if (byId.size >= 12) {
+            break;
+          }
+        }
+        if (byId.size >= 12) {
+          break;
+        }
+      }
+    } catch {
+      // InnerTube below
+    }
+  }
+
+  if (byId.size < 3) {
+    for (const q of queries.slice(0, 2)) {
+      const batch = await collectViaInnerTube(q, fetchImpl);
+      mergeCandidates(byId, batch);
+      if (byId.size >= 8) {
+        break;
+      }
+    }
+  }
+
+  return [...byId.values()].slice(0, 15);
 }
 
-function collectVideoIds(node: unknown, out: string[], depth = 0): void {
-  if (out.length >= 5 || depth > 16 || node == null) {
+export function eligibleYoutubeCandidates(
+  candidates: YoutubeCandidate[],
+  placeName: string,
+  kind?: YoutubePlaceKind | null,
+): YoutubeCandidate[] {
+  return candidates.filter(
+    (c) => scoreYoutubeCandidate(c, placeName, kind) != null,
+  );
+}
+
+export async function resolveYoutubeVideoId(
+  queryOrPlace: string,
+  options?: ResolveYoutubeOptions,
+): Promise<string | null> {
+  const placeName = (options?.placeName ?? queryOrPlace).trim().slice(0, 80);
+  if (placeName.length < 2) {
+    return null;
+  }
+  const kind = options?.kind ?? null;
+  const useAiPick = options?.useAiPick !== false;
+
+  const candidates = await collectYoutubePlaceCandidates(queryOrPlace, options);
+  const eligible = eligibleYoutubeCandidates(candidates, placeName, kind);
+  if (eligible.length === 0) {
+    return null;
+  }
+
+  if (useAiPick && eligible.length > 1) {
+    try {
+      const { pickYoutubeVideoIdWithAi } = await import(
+        "@/features/places/pick-youtube-with-ai"
+      );
+      const aiId = await pickYoutubeVideoIdWithAi({
+        placeName,
+        kind,
+        locality: options?.locality,
+        candidates: eligible,
+      });
+      if (aiId && eligible.some((c) => c.videoId === aiId)) {
+        return aiId;
+      }
+    } catch {
+      // fall through to heuristic
+    }
+  }
+
+  return pickBestYoutubeCandidate(eligible, placeName, kind);
+}
+
+function titleFromRenderer(renderer: Record<string, unknown>): string {
+  const title = renderer.title;
+  if (!title || typeof title !== "object") {
+    return "";
+  }
+  const record = title as {
+    simpleText?: string;
+    runs?: Array<{ text?: string }>;
+  };
+  if (typeof record.simpleText === "string") {
+    return record.simpleText;
+  }
+  if (Array.isArray(record.runs)) {
+    return record.runs.map((r) => r.text ?? "").join("");
+  }
+  return "";
+}
+
+function collectCandidates(
+  node: unknown,
+  out: YoutubeCandidate[],
+  depth = 0,
+): void {
+  if (out.length >= 15 || depth > 16 || node == null) {
     return;
   }
   if (typeof node !== "object") {
@@ -158,8 +486,8 @@ function collectVideoIds(node: unknown, out: string[], depth = 0): void {
   }
   if (Array.isArray(node)) {
     for (const item of node) {
-      collectVideoIds(item, out, depth + 1);
-      if (out.length >= 5) {
+      collectCandidates(item, out, depth + 1);
+      if (out.length >= 15) {
         return;
       }
     }
@@ -169,39 +497,38 @@ function collectVideoIds(node: unknown, out: string[], depth = 0): void {
 
   const renderer = record.videoRenderer;
   if (renderer && typeof renderer === "object") {
-    const id = (renderer as { videoId?: unknown }).videoId;
-    if (typeof id === "string" && isYoutubeVideoId(id) && !out.includes(id)) {
-      out.push(id);
+    const video = renderer as { videoId?: unknown };
+    const id = video.videoId;
+    if (typeof id === "string" && isYoutubeVideoId(id)) {
+      if (!out.some((c) => c.videoId === id)) {
+        out.push({
+          videoId: id,
+          title: titleFromRenderer(renderer as Record<string, unknown>),
+        });
+      }
     }
   }
 
-  // Shorts shelf / reel renderers
   const shorts = record.reelItemRenderer ?? record.shortsLockupViewModel;
   if (shorts && typeof shorts === "object") {
-    const nested: string[] = [];
-    collectVideoIds(shorts, nested, depth + 1);
-    for (const id of nested) {
-      if (!out.includes(id)) {
-        out.push(id);
-      }
-    }
+    collectCandidates(shorts, out, depth + 1);
   }
 
   for (const [key, value] of Object.entries(record)) {
     if (key === "videoId") {
       continue;
     }
-    collectVideoIds(value, out, depth + 1);
-    if (out.length >= 5) {
+    collectCandidates(value, out, depth + 1);
+    if (out.length >= 15) {
       return;
     }
   }
 }
 
-async function resolveViaInnerTube(
+async function collectViaInnerTube(
   query: string,
   fetchImpl: typeof fetch,
-): Promise<string | null> {
+): Promise<YoutubeCandidate[]> {
   try {
     const res = await fetchImpl(
       "https://www.youtube.com/youtubei/v1/search?prettyPrint=false",
@@ -226,13 +553,14 @@ async function resolveViaInnerTube(
       },
     );
     if (!res.ok) {
-      return null;
+      return [];
     }
     const body: unknown = await res.json();
-    const ids: string[] = [];
-    collectVideoIds(body, ids);
-    return ids[0] ?? null;
+    const candidates: YoutubeCandidate[] = [];
+    collectCandidates(body, candidates);
+    return candidates;
   } catch {
-    return null;
+    return [];
   }
 }
+

@@ -10,6 +10,7 @@ import {
   type MappedStop,
 } from "@/features/map/route-geometry";
 import { StopMediaOverlay } from "@/features/places/stop-media-overlay";
+import { isAlongRoutePlaceStop } from "@/features/places/place-media-eligibility";
 import type { ItineraryStop } from "@/features/routes/itinerary-schema";
 
 const SPEED_OPTIONS = [0.5, 1, 2, 4] as const;
@@ -79,13 +80,7 @@ export function RouteCinema({
   );
 
   const mediaStops = useMemo(
-    () =>
-      stops.filter(
-        (stop) =>
-          stop.role !== "charge" &&
-          stop.kind !== "charge" &&
-          stop.kind !== "anchor",
-      ),
+    () => stops.filter((stop) => isAlongRoutePlaceStop(stop)),
     [stops],
   );
 
@@ -180,6 +175,10 @@ export function RouteCinema({
           cinematic={cinematic}
           followCamera={followCamera}
           onStopSelect={(listIndex) => {
+            const stop = stops.find((s) => s.listIndex === listIndex);
+            if (!stop || !isAlongRoutePlaceStop(stop)) {
+              return;
+            }
             setPlaying(false);
             setActiveStopIndex(listIndex);
             setSeenStops((prev) => new Set(prev).add(listIndex));
@@ -192,12 +191,13 @@ export function RouteCinema({
             </span>
           </div>
         ) : null}
-        {activeStop ? (
+        {activeStop && isAlongRoutePlaceStop(activeStop) ? (
           <StopMediaOverlay
             title={activeStop.name}
             description={activeItinerary?.reason ?? null}
             lat={activeItinerary?.lat ?? activeStop.lngLat[1]}
             lng={activeItinerary?.lng ?? activeStop.lngLat[0]}
+            kind={activeItinerary?.kind ?? activeStop.kind}
             continueLabel={continueLabel}
             watchPlaceLabel={watchPlaceLabel}
             openYoutubeLabel={openYoutubeLabel}

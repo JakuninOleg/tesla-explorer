@@ -30,7 +30,9 @@ export function buildPlaceContextLinks(
 
   return {
     mapsUrl,
-    youtubeUrl: `https://www.youtube.com/results?search_query=${encoded}+review`,
+    youtubeUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(
+      `"${stop.name}" review visit`,
+    )}`,
     query,
   };
 }
@@ -44,9 +46,9 @@ export function buildYoutubeEmbedUrl(options: {
   placeName: string;
   cityHint?: string;
 }): { embedUrl: string | null; watchUrl: string } {
-  const searchQuery = `${options.placeName}${
+  const searchQuery = `"${options.placeName}"${
     options.cityHint ? ` ${options.cityHint}` : ""
-  } #shorts`;
+  } walking tour visit review`;
   const watchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
     searchQuery,
   )}`;

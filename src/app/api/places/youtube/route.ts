@@ -2,19 +2,33 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { reverseGeocodeLocality } from "@/features/geo/mapbox-suggest";
 import {
-  buildLocalYoutubeSearchQuery,
+  buildPlaceYoutubeQueries,
   resolveYoutubeVideoId,
+  type YoutubePlaceKind,
 } from "@/features/places/resolve-youtube";
+import { isAlongRoutePlaceStop } from "@/features/places/place-media-eligibility";
 
 const RATE_WINDOW_MS = 60 * 60 * 1000;
-const RATE_MAX = 20;
+const RATE_MAX = 30;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+/** Bump when scoring / query shape changes so bad embeds are not sticky. */
+const CACHE_VERSION = "v4-ai-pick";
 
 const rateByUser = new Map<string, { count: number; resetAt: number }>();
 const cacheByQuery = new Map<
   string,
   { videoId: string | null; expiresAt: number }
 >();
+
+const PLACE_KINDS = new Set<YoutubePlaceKind>([
+  "scenic",
+  "food",
+  "charge",
+  "activity",
+  "viewpoint",
+  "other",
+  "anchor",
+]);
 
 function allowRequest(userId: string): boolean {
   const now = Date.now();
@@ -38,6 +52,15 @@ function parseCoord(raw: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function parseKind(raw: string | null): YoutubePlaceKind | null {
+  if (!raw) {
+    return null;
+  }
+  return PLACE_KINDS.has(raw as YoutubePlaceKind)
+    ? (raw as YoutubePlaceKind)
+    : null;
+}
+
 export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -56,6 +79,7 @@ export async function GET(request: Request) {
 
   const lat = parseCoord(searchParams.get("lat"));
   const lng = parseCoord(searchParams.get("lng"));
+  const kind = parseKind(searchParams.get("kind"));
   if (lat != null && (lat < -90 || lat > 90)) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   }
@@ -63,20 +87,41 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   }
 
+  // Home / work / charge — never resolve YouTube.
+  if (
+    !isAlongRoutePlaceStop({
+      name: placeName,
+      kind: kind ?? "other",
+      role: kind === "charge" ? "charge" : "explore",
+    })
+  ) {
+    return NextResponse.json({
+      videoId: null,
+      query: placeName,
+      locality: null,
+      skipped: "not_along_route_place",
+    });
+  }
+
   let locality: string | null = null;
   if (lat != null && lng != null) {
     locality = await reverseGeocodeLocality(lat, lng);
   }
 
-  const query = buildLocalYoutubeSearchQuery({
+  const queries = buildPlaceYoutubeQueries({
     placeName,
     locality,
     lat,
     lng,
+    kind,
   });
+  const primaryQuery = queries[0] ?? placeName;
 
   const cacheKey = [
-    query.toLowerCase(),
+    CACHE_VERSION,
+    placeName.toLowerCase(),
+    kind ?? "",
+    locality?.toLowerCase() ?? "",
     lat?.toFixed(3) ?? "",
     lng?.toFixed(3) ?? "",
   ].join("|");
@@ -85,19 +130,26 @@ export async function GET(request: Request) {
   if (cached && now < cached.expiresAt) {
     return NextResponse.json({
       videoId: cached.videoId,
-      query,
+      query: primaryQuery,
       locality,
     });
   }
 
-  const videoId = await resolveYoutubeVideoId(query, { lat, lng });
+  const videoId = await resolveYoutubeVideoId(placeName, {
+    placeName,
+    kind,
+    locality,
+    lat,
+    lng,
+    queries,
+  });
   cacheByQuery.set(cacheKey, {
     videoId: videoId ?? null,
     expiresAt: now + CACHE_TTL_MS,
   });
   return NextResponse.json({
     videoId: videoId ?? null,
-    query,
+    query: primaryQuery,
     locality,
   });
 }
