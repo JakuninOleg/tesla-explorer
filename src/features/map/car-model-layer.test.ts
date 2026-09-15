@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  createEvCarGroup,
-  modelOrientationFromBearing,
-} from "@/features/map/car-model-layer";
+import { createEvCarGroup } from "@/features/map/ev-car-mesh";
+import { modelOrientationFromBearing } from "@/features/map/car-model-layer";
 
 describe("ev car mesh", () => {
   it("builds a detailed three.js group (not a single box)", () => {

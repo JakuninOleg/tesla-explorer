@@ -73,3 +73,208 @@ h2 {
   background: color-mix(in srgb, var(--accent) 35%, transparent);
   color: var(--foreground);
 }
+
+@keyframes landing-route-draw {
+  from {
+    stroke-dashoffset: 1400;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes landing-stop-pulse {
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+@keyframes landing-car-drive {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(14px, -9px);
+  }
+}
+
+@keyframes landing-chat-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-play-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, #e31937 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+
+@keyframes landing-progress {
+  from {
+    transform: scaleX(0.25);
+  }
+  to {
+    transform: scaleX(0.72);
+  }
+}
+
+@keyframes landing-yt-breathe {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+}
+
+@keyframes landing-float-a {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(-2deg);
+  }
+}
+
+@keyframes landing-float-b {
+  0%,
+  100% {
+    transform: translateY(0) rotate(1deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(1deg);
+  }
+}
+
+@keyframes landing-float-c {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(-1deg);
+  }
+}
+
+@keyframes landing-hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.landing-route-line {
+  stroke-dasharray: 1400;
+  stroke-dashoffset: 1400;
+  animation: landing-route-draw 2.8s ease-out 0.2s forwards;
+}
+
+.landing-stop-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: landing-stop-pulse 2.4s ease-in-out infinite;
+}
+
+.landing-car-drive {
+  animation: landing-car-drive 4.5s ease-in-out infinite;
+}
+
+.landing-chat-in {
+  animation: landing-chat-in 0.55s ease-out both;
+}
+
+.landing-chat-in-delay {
+  animation-delay: 0.28s;
+}
+
+.landing-play-pulse {
+  animation: landing-play-pulse 2.2s ease-out infinite;
+}
+
+.landing-progress-fill {
+  transform-origin: left center;
+  animation: landing-progress 6s ease-in-out infinite alternate;
+}
+
+.landing-yt-play {
+  animation: landing-yt-breathe 2.4s ease-in-out infinite;
+}
+
+.landing-float-a {
+  animation: landing-float-a 5.5s ease-in-out infinite;
+}
+
+.landing-float-b {
+  animation: landing-float-b 6.2s ease-in-out infinite 0.4s;
+}
+
+.landing-float-c {
+  animation: landing-float-c 5.8s ease-in-out infinite 0.8s;
+}
+
+.landing-hero-rise {
+  animation: landing-hero-rise 0.75s ease-out both;
+}
+
+.landing-hero-rise-delay {
+  animation-delay: 0.12s;
+}
+
+.landing-hero-rise-delay-2 {
+  animation-delay: 0.22s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-route-line,
+  .landing-stop-pulse,
+  .landing-car-drive,
+  .landing-chat-in,
+  .landing-chat-in-delay,
+  .landing-play-pulse,
+  .landing-progress-fill,
+  .landing-yt-play,
+  .landing-float-a,
+  .landing-float-b,
+  .landing-float-c,
+  .landing-hero-rise,
+  .landing-hero-rise-delay,
+  .landing-hero-rise-delay-2 {
+    animation: none;
+  }
+
+  .landing-route-line {
+    stroke-dashoffset: 0;
+  }
+
+  .landing-chat-in,
+  .landing-hero-rise {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}

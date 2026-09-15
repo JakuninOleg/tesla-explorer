@@ -4,7 +4,7 @@ export const brand = {
   shortName: "Explorer",
   tagline: "Plan the drive. Find the place.",
   description:
-    "AI-planned leisure routes for Tesla drivers exploring the USA — time, charge, and curiosity.",
+    "Evening drive planner for Tesla owners in the USA: chat, battery-aware routes, 3D map, and videos of stops along the way.",
   markSrc: "/brand/mark.png",
   wordmarkSrc: "/brand/wordmark.png",
   /** Near-black canvas — also used as PWA theme/background. */

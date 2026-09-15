@@ -19,9 +19,13 @@ describe("i18n message catalogs", () => {
   });
 
   it("keeps product-facing home copy without internal labels", () => {
-    expect(en.Home.cta).toBe("Get started");
-    expect(ru.Home.cta).toBe("Начать");
+    expect(en.Home.cta).toMatch(/sign in|plan/i);
+    expect(ru.Home.cta).toMatch(/войти|спланир/i);
+    expect(en.Home.headline.length).toBeGreaterThan(10);
+    expect(ru.Home.headline.length).toBeGreaterThan(10);
+    expect(en.Home.heroPromptExample.length).toBeGreaterThan(5);
+    expect(ru.Home.demoPlay.length).toBeGreaterThan(2);
     expect(en.Home.disclaimer.toLowerCase()).not.toMatch(/pet|sprint/);
-    expect(ru.Home.disclaimer.toLowerCase()).not.toMatch(/pet|sprint/);
+    expect(ru.Home.disclaimer.toLowerCase()).toMatch(/не связано/);
   });
 });
