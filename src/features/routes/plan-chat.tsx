@@ -1,251 +1,32 @@
 "use client";
 
-import { useLocale, useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
-import { chatPlanAction } from "@/features/routes/chat-plan-action";
-import { buildChatGreeting } from "@/features/routes/plan-prompt";
-import type { OnboardingInput } from "@/features/profile/onboarding-schema";
-import { isLocale } from "@/i18n/routing";
-import { useRouter } from "@/i18n/navigation";
+import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
+import { LandingIcon } from "@/features/marketing/landing-icon";
+import { SCENARIOS } from "./dashboard-data";
+import type { TripPlanner } from "./use-trip-planner";
 
-type Turn = { role: "user" | "assistant"; content: string };
-
-export function PlanChat({
-  profile,
-  displayName,
-  homeLabel,
-  workLabel,
-}: {
-  profile: OnboardingInput;
-  displayName: string;
-  homeLabel: string;
-  workLabel: string;
-}) {
+export function PlanChat({ planner, onScenario }: { planner: TripPlanner; onScenario: (id: typeof SCENARIOS[number]["id"]) => void }) {
   const t = useTranslations("Dashboard");
-  const localeRaw = useLocale();
-  const locale = isLocale(localeRaw) ? localeRaw : "en";
-  const router = useRouter();
-  const greeting = useMemo(
-    () => buildChatGreeting({ displayName, profile, locale }),
-    [displayName, profile, locale],
-  );
-  const [messages, setMessages] = useState<Turn[]>([
-    { role: "assistant", content: greeting },
-  ]);
-  const [greetingLocale, setGreetingLocale] = useState(locale);
-  if (greetingLocale !== locale) {
-    setGreetingLocale(locale);
-    setMessages([{ role: "assistant", content: greeting }]);
-  }
-  const [draft, setDraft] = useState("");
-  const [hours, setHours] = useState(3);
-  const [battery, setBattery] = useState(70);
-  const [startAnchor, setStartAnchor] = useState<"home" | "work" | "other">(
-    "work",
-  );
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  return (
-    <div className="flex flex-col gap-4" data-testid="plan-chat">
-      <div className="rounded-sm border border-border bg-muted/30 p-4 md:p-5">
-        <div className="flex items-center gap-3">
-          <span
-            aria-hidden
-            className="flex size-11 shrink-0 items-center justify-center rounded-sm bg-accent text-sm font-semibold tracking-[0.08em] text-accent-foreground"
-          >
-            AI
-          </span>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold tracking-[0.16em] text-foreground uppercase">
-              {t("copilotName")}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t("copilotSubtitle")}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 flex max-h-[28rem] flex-col gap-3 overflow-y-auto">
-          {messages.map((msg, index) => (
-            <div
-              key={`${msg.role}-${index}`}
-              className={`flex gap-2 ${
-                msg.role === "assistant" ? "justify-start" : "justify-end"
-              }`}
-            >
-              {msg.role === "assistant" ? (
-                <span
-                  aria-hidden
-                  className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-sm bg-accent/90 text-[0.65rem] font-semibold text-accent-foreground"
-                >
-                  AI
-                </span>
-              ) : null}
-              <div
-                className={`max-w-[88%] rounded-sm px-4 py-3 text-base leading-relaxed ${
-                  msg.role === "assistant"
-                    ? "bg-background text-foreground"
-                    : "bg-accent text-accent-foreground"
-                }`}
-              >
-                {msg.content}
-              </div>
-            </div>
-          ))}
-          {pending ? (
-            <p className="text-sm tracking-[0.12em] text-muted-foreground uppercase">
-              {t("planning")}
-            </p>
-          ) : null}
-        </div>
-
-        <form
-          className="mt-4 flex flex-col gap-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const text = draft.trim();
-            if (!text || pending) {
-              return;
-            }
-            setError(null);
-            setPending(true);
-            const nextMessages: Turn[] = [
-              ...messages,
-              { role: "user", content: text },
-            ];
-            setMessages(nextMessages);
-            setDraft("");
-
-            void (async () => {
-              try {
-                const result = await chatPlanAction({
-                  messages: nextMessages.filter(
-                    (m, i) => !(i === 0 && m.role === "assistant"),
-                  ),
-                  availableHours: hours,
-                  batteryPercent: battery,
-                  startAnchor,
-                  locale,
-                });
-
-                if (!result.ok) {
-                  setError(
-                    result.error === "unauthorized"
-                      ? t("errorUnauthorized")
-                      : result.error === "no_profile"
-                        ? t("errorNoProfile")
-                        : result.error === "ai"
-                          ? (result.message ?? t("errorAi"))
-                          : result.error === "parse"
-                            ? t("errorParse")
-                            : t("errorSave"),
-                  );
-                  return;
-                }
-
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    role: "assistant",
-                    content: result.routeId
-                      ? `${result.reply}\n\n→ ${t("chatOpenMap")}`
-                      : result.reply,
-                  },
-                ]);
-
-                if (result.routeId) {
-                  router.push(`/routes/${result.routeId}`);
-                }
-              } catch {
-                setError(t("errorAi"));
-              } finally {
-                setPending(false);
-              }
-            })();
-          }}
-        >
-          <textarea
-            data-testid="plan-chat-input"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={3}
-            placeholder={t("chatPlaceholder")}
-            className="w-full rounded-sm border border-border bg-background px-4 py-3 text-base text-foreground outline-none focus:border-foreground/40"
-          />
-          {error ? (
-            <p className="text-base text-danger" data-testid="plan-chat-error">
-              {error}
-            </p>
-          ) : null}
-          <button
-            type="submit"
-            data-testid="plan-chat-send"
-            disabled={pending || draft.trim().length < 2}
-            className="inline-flex h-12 items-center justify-center rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90 disabled:opacity-60"
-          >
-            {pending ? t("planning") : t("chatSend")}
-          </button>
-        </form>
-      </div>
-
-      <details className="rounded-sm border border-border bg-muted/20 px-4 py-3">
-        <summary className="cursor-pointer text-sm font-medium tracking-[0.12em] text-muted-foreground uppercase">
-          {t("tripSettings")}
-        </summary>
-        <div className="mt-4 flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">{t("tripSettingsHint")}</p>
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                ["home", t("startHome", { address: homeLabel })],
-                ["work", t("startWork", { address: workLabel })],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setStartAnchor(value)}
-                className={`rounded-sm border px-3 py-2 text-sm transition-colors ${
-                  startAnchor === value
-                    ? "border-accent text-foreground"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="text-sm font-medium tracking-[0.12em] text-muted-foreground uppercase">
-                {t("hours")}
-              </span>
-              <input
-                type="number"
-                min={1}
-                max={16}
-                value={hours}
-                onChange={(e) => setHours(Number(e.target.value))}
-                className="mt-2 w-full rounded-sm border border-border bg-muted px-3 py-3 text-base text-foreground outline-none focus:border-foreground/40"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium tracking-[0.12em] text-muted-foreground uppercase">
-                {t("battery")}
-              </span>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={battery}
-                onChange={(e) => setBattery(Number(e.target.value))}
-                className="mt-2 w-full rounded-sm border border-border bg-muted px-3 py-3 text-base text-foreground outline-none focus:border-foreground/40"
-              />
-            </label>
-          </div>
-        </div>
-      </details>
+  const log = useRef<HTMLDivElement>(null);
+  useEffect(() => { log.current?.scrollTo({ top: log.current.scrollHeight }); }, [planner.messages, planner.pending]);
+  return <section id="explorer-chat" aria-label={t("copilotName")} className="flex min-h-[460px] flex-col rounded-xl border border-border bg-background p-5" data-testid="plan-chat">
+    <h2 className="flex items-center gap-2 text-lg! font-semibold"><span className="text-accent"><LandingIcon name="spark" /></span>{t("copilotName")}</h2>
+    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t("copilotSubtitle")}</p>
+    <div ref={log} role="log" aria-live="polite" aria-label={t("conversation")} className="mt-5 flex max-h-80 min-h-32 flex-1 flex-col gap-3 overflow-y-auto text-sm leading-relaxed">
+      <p className="self-start rounded-xl rounded-tl-sm bg-muted px-4 py-3">{t("chatWelcome")}</p>
+      {planner.messages.map((message, index) => <p key={index} className={`max-w-[95%] whitespace-pre-wrap break-words rounded-xl px-4 py-3 ${message.role === "user" ? "self-end rounded-br-sm bg-foreground text-background" : "self-start rounded-tl-sm bg-muted"}`}>{message.content}</p>)}
+      {planner.pending ? <p role="status" className="text-muted-foreground">{t("planning")}</p> : null}
     </div>
-  );
+    {planner.messages.length === 0 ? <div className="my-4 space-y-2">{SCENARIOS.map((scenario) => <button key={scenario.id} disabled={planner.pending} onClick={() => onScenario(scenario.id)} className="w-full cursor-pointer rounded-full border border-border px-4 py-2.5 text-left text-xs leading-relaxed transition-colors hover:border-accent/40 hover:bg-muted disabled:cursor-wait">{t(`scenarios.${scenario.id}.suggestion`)}</button>)}</div> : null}
+    <form className="mt-4" onSubmit={(event) => { event.preventDefault(); void planner.send(); }}>
+      <label htmlFor="chat-draft" className="sr-only">{t("prompt")}</label>
+      <div className="flex items-end gap-2 rounded-2xl border border-border bg-muted/40 p-2 focus-within:border-accent/50">
+        <textarea id="chat-draft" data-testid="plan-chat-input" disabled={planner.pending} maxLength={4000} value={planner.draft} onChange={(event) => planner.setDraft(event.target.value)} rows={2} placeholder={t("chatPlaceholder")} className="min-w-0 flex-1 resize-none bg-transparent px-2 py-1 text-sm outline-none" />
+        <button type="submit" aria-label={t("chatSend")} data-testid="plan-chat-send" disabled={!planner.canSend} className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:bg-black/15"><LandingIcon name="send" className="size-4" /></button>
+      </div>
+      {planner.error ? <p role="alert" data-testid="plan-chat-error" className="mt-3 text-sm text-danger">{planner.error}</p> : null}
+      {planner.draft.trim().length > 0 && planner.draft.trim().length < 8 ? <p className="mt-2 text-xs text-muted-foreground">{t("promptHint")}</p> : null}
+    </form>
+  </section>;
 }

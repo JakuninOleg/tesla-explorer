@@ -4,7 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { suggestAddresses, type MapboxSuggestResult } from "@/features/geo/mapbox-suggest";
 
 const fieldClass =
-  "mt-2 w-full rounded-sm border border-border bg-muted px-3 py-3 text-sm text-foreground outline-none transition-colors focus:border-foreground/40";
+  "mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-[#e82142] focus:ring-2 focus:ring-[#e82142]/10";
 
 export type AddressValue = {
   address: string;
@@ -69,11 +69,12 @@ export function AddressAutocomplete({
   }, [query]);
 
   return (
-    <label className="block">
-      <span className="text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">
+    <div className="min-w-0">
+      <label htmlFor={`${listId}-input`} className="text-sm font-medium text-foreground">
         {label}
-      </span>
+      </label>
       <input
+        id={`${listId}-input`}
         name={`${namePrefix}Address`}
         type="text"
         required={required}
@@ -107,7 +108,7 @@ export function AddressAutocomplete({
           <button
             key={item.id}
             type="button"
-            className="rounded-sm border border-border px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+            className="cursor-pointer rounded-lg border border-border px-3 py-2 text-left text-xs leading-relaxed text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
             onClick={() => {
               setQuery(item.placeName);
               setLat(item.lat);
@@ -124,6 +125,6 @@ export function AddressAutocomplete({
       ) : null}
       <input type="hidden" name={`${namePrefix}Lat`} value={lat ?? ""} />
       <input type="hidden" name={`${namePrefix}Lng`} value={lng ?? ""} />
-    </label>
+    </div>
   );
 }

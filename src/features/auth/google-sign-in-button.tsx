@@ -11,10 +11,10 @@ export function GoogleSignInButton({ className }: { className?: string }) {
   return (
     <button
       type="button"
-      className={
+      className={"cursor-pointer " + (
         className ??
         "inline-flex h-12 w-full items-center justify-center gap-3 rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90"
-      }
+      )}
       onClick={() => {
         void signInWithGoogle(locale);
       }}

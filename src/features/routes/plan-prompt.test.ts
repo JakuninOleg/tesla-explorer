@@ -81,10 +81,10 @@ describe("plan prompt builder", () => {
     };
     expect(
       buildChatGreeting({ displayName: "Alex", profile, locale: "en" }),
-    ).toMatch(/co-pilot/i);
+    ).toMatch(/Explorer Guide/i);
     expect(
       buildChatGreeting({ displayName: "Alex", profile, locale: "ru" }),
-    ).toMatch(/ко-пилот/i);
+    ).toMatch(/Гид Explorer/i);
   });
 });
 

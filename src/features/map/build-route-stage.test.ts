@@ -26,15 +26,15 @@ const austinStops: ItineraryStop[] = [
 ];
 
 describe("buildRouteStage", () => {
-  it("builds cinema-ready stage from coordinated stops (fallback line)", async () => {
+  it("keeps stops but disables cinema when no driving geometry is available", async () => {
     const stage = await buildRouteStage(austinStops, {
       token: "",
       fetchImpl: async () => new Response("no", { status: 500 }),
     });
     expect(stage.mapped).toHaveLength(2);
-    expect(stage.canCinema).toBe(true);
-    expect(stage.line?.coordinates.length).toBeGreaterThanOrEqual(2);
-    expect(stage.startPose?.lngLat[0]).toBeCloseTo(-97.794, 2);
-    expect(stage.midPose).not.toBeNull();
+    expect(stage.canCinema).toBe(false);
+    expect(stage.line).toBeNull();
+    expect(stage.startPose).toBeNull();
+    expect(stage.midPose).toBeNull();
   });
 });

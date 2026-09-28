@@ -2,6 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import Image from "next/image";
+import { LandingIcon } from "@/features/marketing/landing-icon";
 import { AddressAutocomplete } from "@/features/geo/address-autocomplete";
 import {
   TESLA_MODELS,
@@ -12,10 +14,10 @@ import { saveProfileAction } from "@/features/profile/profile-actions";
 import { useRouter } from "@/i18n/navigation";
 
 const fieldClass =
-  "mt-2 w-full rounded-sm border border-border bg-muted px-3 py-3 text-sm text-foreground outline-none transition-colors focus:border-foreground/40";
+  "mt-2 w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-[#e82142] focus:ring-2 focus:ring-[#e82142]/10";
 
 const labelClass =
-  "text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase";
+  "text-sm font-medium text-foreground";
 
 function readCoord(value: FormDataEntryValue | null): number | null {
   const raw = String(value ?? "").trim();
@@ -38,7 +40,7 @@ export function OnboardingForm({
 
   return (
     <form
-      className="mt-10 flex flex-col gap-6"
+      className="mt-7"
       onSubmit={(event) => {
         event.preventDefault();
         setError(null);
@@ -67,6 +69,7 @@ export function OnboardingForm({
         }
 
         void (async () => {
+          try {
           const result = await saveProfileAction(parsed.data);
           if (!result.ok) {
             setPending(false);
@@ -80,9 +83,19 @@ export function OnboardingForm({
           setPending(false);
           router.push("/dashboard");
           router.refresh();
+          } catch {
+            setError(t("errorSave"));
+          } finally {
+            setPending(false);
+          }
         })();
       }}
     >
+      <fieldset disabled={pending} className="grid min-w-0 gap-5 disabled:opacity-70 md:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+      <div className="min-w-0 space-y-5">
+      <section className="space-y-5 rounded-2xl border border-border bg-white p-5 sm:p-7">
+        <h2 className="flex items-center gap-3 text-lg font-semibold"><LandingIcon name="home" />{t("addressesTitle")}</h2>
+        <p className="text-sm leading-relaxed text-muted-foreground">{t("addressesHint")}</p>
       <AddressAutocomplete
         label={t("homeAddress")}
         namePrefix="home"
@@ -107,10 +120,13 @@ export function OnboardingForm({
         }}
       />
 
+      </section>
+      <section className="space-y-5 rounded-2xl border border-border bg-white p-5 sm:p-7">
+      <h2 className="flex items-center gap-3 text-lg font-semibold"><LandingIcon name="spark" />{t("preferencesTitle")}</h2>
       <fieldset>
         <legend className={labelClass}>{t("household")}</legend>
         <div className="mt-3 flex gap-3">
-          <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-sm border border-border px-3 py-3 text-sm has-[:checked]:border-accent">
+          <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-xl border border-border px-4 py-3 text-sm transition-colors has-[:checked]:border-[#e82142] has-[:checked]:bg-[#fff5f6]">
             <input
               type="radio"
               name="household"
@@ -120,7 +136,7 @@ export function OnboardingForm({
             />
             {t("solo")}
           </label>
-          <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-sm border border-border px-3 py-3 text-sm has-[:checked]:border-accent">
+          <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-xl border border-border px-4 py-3 text-sm transition-colors has-[:checked]:border-[#e82142] has-[:checked]:bg-[#fff5f6]">
             <input
               type="radio"
               name="household"
@@ -149,6 +165,7 @@ export function OnboardingForm({
         <span className={labelClass}>{t("aboutMe")}</span>
         <textarea
           name="aboutMe"
+          maxLength={280}
           rows={2}
           defaultValue={initialProfile?.aboutMe ?? ""}
           placeholder={t("aboutMePlaceholder")}
@@ -161,6 +178,7 @@ export function OnboardingForm({
         <textarea
           name="interests"
           required
+          maxLength={240}
           rows={3}
           defaultValue={initialProfile?.interests ?? ""}
           placeholder={t("interestsPlaceholder")}
@@ -168,6 +186,11 @@ export function OnboardingForm({
         />
       </label>
 
+      </section>
+      </div>
+      <section className="min-w-0 self-start overflow-hidden rounded-2xl border border-border bg-white p-5 sm:p-7">
+        <h2 className="flex items-center gap-3 text-lg font-semibold"><LandingIcon name="car" />{t("vehicleTitle")}</h2>
+        <Image src="/marketing/redesign/dashboard-tesla.png" alt="" width={1536} height={1024} className="my-4 aspect-[3/2] w-full object-contain" />
       <label className="block">
         <span className={labelClass}>{t("teslaModel")}</span>
         <select
@@ -184,15 +207,21 @@ export function OnboardingForm({
         </select>
       </label>
 
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
+        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{t("vehicleHint")}</p>
+        <div className="mt-6 flex gap-3 rounded-xl bg-[#f6f7f8] p-4 text-sm leading-relaxed text-muted-foreground"><LandingIcon name="bolt" className="mt-0.5 size-5 shrink-0" />{t("batteryHint")}</div>
+      </section>
+      </fieldset>
+      <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-border bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+      <p role={error ? "alert" : undefined} className={error ? "text-sm text-danger" : "text-sm text-muted-foreground"}>{error ?? t("saveHint")}</p>
 
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex h-12 items-center justify-center rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90 disabled:opacity-60"
+        className="group inline-flex h-12 shrink-0 cursor-pointer items-center justify-center gap-3 rounded-xl bg-[#e82142] px-6 text-sm font-medium text-white transition-colors hover:bg-[#d41938] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#e82142] disabled:cursor-wait disabled:opacity-60"
       >
-        {t("submit")}
+        {pending ? t("saving") : t("submit")}<LandingIcon name="arrow" className="size-4 transition-transform motion-safe:group-hover:translate-x-1" />
       </button>
+      </div>
     </form>
   );
 }

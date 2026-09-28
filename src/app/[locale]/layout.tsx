@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist_Mono, Manrope } from "next/font/google";
+import { Caveat, Geist_Mono, Manrope } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -18,6 +18,12 @@ const manrope = Manrope({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const caveat = Caveat({
+  variable: "--font-script",
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "600"],
 });
 
 export const viewport: Viewport = {
@@ -81,7 +87,7 @@ export default async function LocaleLayout({
   return (
     <html
       lang={raw}
-      className={`${theme} ${manrope.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${theme} ${manrope.variable} ${geistMono.variable} ${caveat.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <NextIntlClientProvider messages={messages}>

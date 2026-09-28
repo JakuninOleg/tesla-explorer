@@ -7,7 +7,6 @@ import {
   createCarDomMarker,
   createCarModelLayer,
   removeCarModelLayer,
-  setCarDomMarkerHeading,
   type CarModelPose,
 } from "@/features/map/car-model-layer";
 import {
@@ -29,9 +28,15 @@ export type RouteMapProps = {
   playProgress?: number | null;
   /** Full-bleed cinema stage (route page hero). */
   cinematic?: boolean;
+  /** The parent cinema stage is in native fullscreen. */
+  fullScreen?: boolean;
+  /** A parked starting-point preview; never fabricates route geometry. */
+  stationary?: boolean;
   /** When true, chase-cam sticks to the car; when false, free pan/zoom. */
   followCamera?: boolean;
   onStopSelect?: (listIndex: number) => void;
+  focusedStopIndex?: number | null;
+  onReadyChange?: (ready: boolean) => void;
 };
 
 function applyChaseCamera(
@@ -46,62 +51,6 @@ function applyChaseCamera(
   });
 }
 
-function add3dBuildings(map: mapboxgl.Map) {
-  const layers = map.getStyle()?.layers;
-  if (!layers) {
-    return;
-  }
-  let labelLayerId: string | undefined;
-  for (const layer of layers) {
-    if (
-      layer.type === "symbol" &&
-      layer.layout &&
-      "text-field" in layer.layout
-    ) {
-      labelLayerId = layer.id;
-      break;
-    }
-  }
-
-  if (map.getLayer("tesla-3d-buildings")) {
-    return;
-  }
-
-  map.addLayer(
-    {
-      id: "tesla-3d-buildings",
-      source: "composite",
-      "source-layer": "building",
-      filter: ["==", "extrude", "true"],
-      type: "fill-extrusion",
-      minzoom: 14,
-      paint: {
-        "fill-extrusion-color": "#1c1c1c",
-        "fill-extrusion-height": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          14,
-          0,
-          14.05,
-          ["get", "height"],
-        ],
-        "fill-extrusion-base": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          14,
-          0,
-          14.05,
-          ["get", "min_height"],
-        ],
-        "fill-extrusion-opacity": 0.85,
-      },
-    },
-    labelLayerId,
-  );
-}
-
 export function RouteMap({
   stops,
   line,
@@ -110,8 +59,12 @@ export function RouteMap({
   insufficientStopsLabel,
   playProgress = null,
   cinematic = false,
+  fullScreen = false,
+  stationary = false,
   followCamera = true,
   onStopSelect,
+  focusedStopIndex = null,
+  onReadyChange,
 }: RouteMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -121,6 +74,8 @@ export function RouteMap({
   const carMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const followCameraRef = useRef(followCamera);
   const onStopSelectRef = useRef(onStopSelect);
+  const onReadyRef = useRef(onReadyChange);
+  const progressRef = useRef(playProgress);
 
   useEffect(() => {
     followCameraRef.current = followCamera;
@@ -129,6 +84,8 @@ export function RouteMap({
   useEffect(() => {
     onStopSelectRef.current = onStopSelect;
   }, [onStopSelect]);
+  useEffect(() => { onReadyRef.current = onReadyChange; }, [onReadyChange]);
+  useEffect(() => { progressRef.current = playProgress; }, [playProgress]);
 
   useEffect(() => {
     if (!token || !containerRef.current || stops.length === 0) {
@@ -138,11 +95,14 @@ export function RouteMap({
     mapboxgl.accessToken = token;
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: "mapbox://styles/mapbox/dark-v11",
+      style: "mapbox://styles/mapbox/standard-satellite",
+      config: { basemap: { lightPreset: "dusk", showPointOfInterestLabels: !stationary, showTransitLabels: !stationary, showRoadLabels: !stationary } },
+      // Three.js custom layers use Mercator coordinates, not globe projection.
+      projection: "mercator",
       center: stops[0]!.lngLat,
-      zoom: cinematic ? CINEMA_FOLLOW.idleZoom : 11,
-      pitch: cinematic ? CINEMA_FOLLOW.pitch : 45,
-      bearing: 0,
+      zoom: stationary ? 16.4 : cinematic ? CINEMA_FOLLOW.idleZoom : 11,
+      pitch: stationary ? 52 : cinematic ? CINEMA_FOLLOW.pitch : 45,
+      bearing: stationary ? -22 : 0,
       antialias: true,
       attributionControl: true,
       ...(cinematic
@@ -156,6 +116,9 @@ export function RouteMap({
     });
     // Free look always: pan/zoom while the car drives or on pause.
     map.scrollZoom.enable();
+    if (stationary) {
+      map.on("resize", () => map.setPadding({ top: 0, bottom: 0, right: 0, left: window.matchMedia("(min-width: 640px)").matches ? map.getContainer().clientWidth * 0.36 : 0 }));
+    }
     map.dragPan.enable();
     map.touchPitch.enable();
     map.addControl(
@@ -173,17 +136,6 @@ export function RouteMap({
     const routeLine = line;
     let cancelled = false;
 
-    map.on("style.load", () => {
-      if (cancelled) {
-        return;
-      }
-      try {
-        add3dBuildings(map);
-      } catch {
-        // Style without composite buildings — still fine.
-      }
-    });
-
     map.on("load", () => {
       if (cancelled) {
         return;
@@ -195,17 +147,23 @@ export function RouteMap({
         el.setAttribute("aria-label", stop.name);
         el.dataset.testid = `route-stop-marker-${stop.listIndex}`;
         el.className =
-          "flex size-8 cursor-pointer items-center justify-center rounded-full border border-white/80 bg-[var(--accent)] text-xs font-semibold text-white shadow-lg transition-transform hover:scale-110";
-        el.textContent = String(stop.listIndex + 1);
+          "flex max-w-52 cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-[#071016]/90 py-1 pr-3 pl-1 text-xs font-medium text-white shadow-lg";
+        const number = document.createElement("span");
+        number.className = "flex size-7 shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#071016]";
+        number.textContent = String(stop.listIndex + 1);
+        const name = document.createElement("span");
+        name.className = "max-w-32 truncate";
+        name.textContent = stop.name;
+        el.append(number, name);
         el.addEventListener("click", (event) => {
           event.stopPropagation();
           onStopSelectRef.current?.(stop.listIndex);
         });
-        const marker = new mapboxgl.Marker({ element: el })
+        const marker = new mapboxgl.Marker({ element: el, anchor: "bottom", offset: [0, -20] })
           .setLngLat(stop.lngLat)
           .setPopup(
             new mapboxgl.Popup({ offset: 18 }).setText(
-              `${stop.name} · ${stop.role} · ${stop.kind}`,
+              stop.name,
             ),
           )
           .addTo(map);
@@ -213,6 +171,25 @@ export function RouteMap({
       }
 
       let carReady = false;
+      const installCar = (pose: CarModelPose) => {
+        const carEl = createCarDomMarker();
+        const marker = new mapboxgl.Marker({ element: carEl, rotationAlignment: "map", pitchAlignment: "map" })
+          .setLngLat(pose.lngLat).setRotation(pose.headingDeg).addTo(map);
+        carMarkerRef.current = marker;
+        const layer = createCarModelLayer(pose, (ready) => {
+          if (cancelled) return;
+          carEl.hidden = ready;
+          if (containerRef.current) containerRef.current.dataset.carModelReady = String(ready);
+        });
+        carLayerRef.current = layer;
+        try {
+          map.addLayer(layer);
+          return Boolean(map.getLayer(layer.id));
+        } catch {
+          // Keep the DOM marker usable if the shared WebGL renderer fails.
+          return false;
+        }
+      };
       if (routeLine && routeLine.coordinates.length >= 2) {
         map.addSource("route-line", {
           type: "geojson",
@@ -227,6 +204,7 @@ export function RouteMap({
             "line-color": "#e31937",
             "line-width": 10,
             "line-opacity": 0.25,
+            "line-emissive-strength": 1,
           },
         });
         map.addLayer({
@@ -238,35 +216,20 @@ export function RouteMap({
             "line-color": "#e31937",
             "line-width": 4,
             "line-opacity": 0.95,
+            "line-emissive-strength": 1,
           },
         });
 
         const coords = routeLine.coordinates as LngLat[];
-        const startPose = poseAlongLine(coords, 0);
-        const carLayer = createCarModelLayer(startPose);
-        carLayerRef.current = carLayer;
-        map.addLayer(carLayer);
-        carReady = Boolean(map.getLayer(carLayer.id));
+        const startPose = poseAlongLine(coords, progressRef.current ?? 0);
+        if (startPose) carReady = installCar(startPose);
 
-        const carEl = createCarDomMarker();
-        const carMarker = new mapboxgl.Marker({
-          element: carEl,
-          rotationAlignment: "map",
-          pitchAlignment: "map",
-        });
-        if (startPose) {
-          carMarker.setLngLat(startPose.lngLat);
-          setCarDomMarkerHeading(carEl, startPose.headingDeg);
-        }
-        carMarker.addTo(map);
-        carMarkerRef.current = carMarker;
-
-        if (!cinematic) {
+        if (!cinematic || !followCameraRef.current) {
           const bounds = boundsFromCoordinates(coords);
           if (bounds) {
             map.fitBounds(bounds, {
               padding: 72,
-              maxZoom: 14,
+              maxZoom: 17,
               pitch: 50,
               duration: 0,
             });
@@ -274,6 +237,11 @@ export function RouteMap({
         } else if (startPose && followCameraRef.current) {
           applyChaseCamera(map, startPose);
         }
+      } else if (stationary) {
+        const pose = { lngLat: mappedStops[0]!.lngLat, headingDeg: 0 };
+        carReady = installCar(pose);
+        // Leave room for the dashboard composer without inventing a route.
+        map.setPadding({ top: 0, bottom: 0, right: 0, left: window.matchMedia("(min-width: 640px)").matches ? map.getContainer().clientWidth * 0.36 : 0 });
       } else {
         const bounds = boundsFromCoordinates(mappedStops.map((s) => s.lngLat));
         if (bounds) {
@@ -282,6 +250,7 @@ export function RouteMap({
       }
 
       const root = containerRef.current;
+      onReadyRef.current?.(true);
       if (root) {
         root.dataset.mapReady = "true";
         root.dataset.carLayer = carReady ? "true" : "false";
@@ -292,6 +261,7 @@ export function RouteMap({
 
     return () => {
       cancelled = true;
+      onReadyRef.current?.(false);
       for (const marker of markers) {
         marker.remove();
       }
@@ -304,7 +274,18 @@ export function RouteMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [token, stops, line, cinematic]);
+  }, [token, stops, line, cinematic, stationary]);
+
+  useEffect(() => {
+    const stop = stops.find((item) => item.listIndex === focusedStopIndex);
+    if (stop && mapRef.current) mapRef.current.easeTo({ center: stop.lngLat, zoom: 17, pitch: 55, duration: 650 });
+  }, [focusedStopIndex, stops]);
+
+  useEffect(() => {
+    if (mapRef.current) {
+      mapRef.current.resize();
+    }
+  }, [fullScreen]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -329,8 +310,7 @@ export function RouteMap({
 
     if (carMarker) {
       carMarker.setLngLat(pose.lngLat);
-      const el = carMarker.getElement() as HTMLDivElement;
-      setCarDomMarkerHeading(el, pose.headingDeg);
+      carMarker.setRotation(pose.headingDeg);
     }
 
     if (followCamera && (cinematic || playProgress != null)) {
@@ -340,7 +320,7 @@ export function RouteMap({
 
   if (!token) {
     return (
-      <div className="flex h-72 items-center justify-center rounded-sm border border-border bg-muted px-4 text-center text-base text-muted-foreground">
+      <div className={`flex ${cinematic ? fullScreen ? "min-h-0 flex-1 items-start pt-12" : "h-[32rem] items-start pt-12 md:h-[34rem]" : "h-72 items-center"} justify-center rounded-sm border border-border bg-muted px-4 text-center text-sm text-muted-foreground`}>
         {missingTokenLabel}
       </div>
     );
@@ -348,21 +328,27 @@ export function RouteMap({
 
   if (stops.length === 0) {
     return (
-      <div className="flex h-72 items-center justify-center rounded-sm border border-border bg-muted px-4 text-center text-base text-muted-foreground">
+      <div className={`flex ${cinematic ? fullScreen ? "min-h-0 flex-1 items-start pt-12" : "h-[32rem] items-start pt-12 md:h-[34rem]" : "h-72 items-center"} justify-center rounded-sm border border-border bg-muted px-4 text-center text-sm text-muted-foreground`}>
         {insufficientStopsLabel}
       </div>
     );
   }
 
   return (
+    <div className={`relative ${fullScreen ? "flex min-h-0 flex-1 flex-col" : ""}`}>
     <div
       ref={containerRef}
       data-testid="route-map"
+      data-play-progress={playProgress ?? 0}
       className={
         cinematic
-          ? "h-[min(100dvh,920px)] w-full overflow-hidden bg-black"
+          ? fullScreen
+            ? "min-h-0 flex-1 w-full overflow-hidden bg-black"
+            : "h-[32rem] w-full overflow-hidden bg-black md:h-[34rem]"
           : "h-80 w-full overflow-hidden rounded-sm border border-border md:h-[28rem]"
       }
     />
+    <a href="/models/tesla-model-3/CREDITS.md" target="_blank" rel="noreferrer" className="absolute bottom-8 left-2 rounded bg-black/70 px-2 py-1 text-[10px] text-white/80 hover:text-white">Tesla Model 3 · iSteven · CC BY-NC 4.0</a>
+    </div>
   );
 }

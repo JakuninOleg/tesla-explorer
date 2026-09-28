@@ -1,300 +1,107 @@
 "use client";
 
 import type { LineString } from "geojson";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { cinemaPlaybackMsAtRate } from "@/features/map/cinema-playback";
-import { RouteMap } from "@/features/map/route-map";
-import {
-  progressNearCoordinate,
-  type LngLat,
-  type MappedStop,
-} from "@/features/map/route-geometry";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import { cinemaPlaybackDurationMs, playbackProgress, playbackTime, orderedStopProgress } from "./cinema-playback";
+import { RouteMap } from "./route-map";
+import { lineLengthMiles, type LngLat, type MappedStop } from "./route-geometry";
 import { StopMediaOverlay } from "@/features/places/stop-media-overlay";
-import { isAlongRoutePlaceStop } from "@/features/places/place-media-eligibility";
+import { RouteStops } from "@/features/routes/route-stops";
 import type { ItineraryStop } from "@/features/routes/itinerary-schema";
 
-const SPEED_OPTIONS = [0.5, 1, 2, 4] as const;
-
-export function RouteCinema({
-  stops,
-  line,
-  token,
-  missingTokenLabel,
-  insufficientStopsLabel,
-  playLabel,
-  pauseLabel,
-  replayLabel,
-  chargePulseLabel,
-  continueLabel,
-  watchPlaceLabel,
-  openYoutubeLabel,
-  followLabel,
-  freeCamLabel,
-  scrubLabel,
-  speedLabel,
-  cinematic = true,
-  autoPlay = false,
-  itineraryStops = [],
-}: {
-  stops: MappedStop[];
-  line: LineString | null;
-  token: string | null;
-  missingTokenLabel: string;
-  insufficientStopsLabel: string;
-  playLabel: string;
-  pauseLabel: string;
-  replayLabel: string;
-  chargePulseLabel: string;
-  continueLabel: string;
-  watchPlaceLabel: string;
-  openYoutubeLabel: string;
-  followLabel: string;
-  freeCamLabel: string;
-  scrubLabel: string;
-  speedLabel: string;
-  cinematic?: boolean;
-  autoPlay?: boolean;
-  itineraryStops?: ItineraryStop[];
+export function RouteCinema({ stops, line, token, itineraryStops }: {
+  stops: MappedStop[]; line: LineString | null; token: string | null; itineraryStops: ItineraryStop[];
 }) {
+  const t = useTranslations("RouteDetail");
   const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState<number | null>(0);
-  const [activeStopIndex, setActiveStopIndex] = useState<number | null>(null);
-  const [seenStops, setSeenStops] = useState<Set<number>>(() => new Set());
-  const [followCamera, setFollowCamera] = useState(true);
-  const [speedRate, setSpeedRate] = useState<(typeof SPEED_OPTIONS)[number]>(1);
+  const [progress, setProgress] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const [follow, setFollow] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  const [mapReady, setMapReady] = useState(false);
+  const [fullScreen, setFullScreen] = useState(false);
   const [seekEpoch, setSeekEpoch] = useState(0);
   const progressRef = useRef(0);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const duration = useMemo(() => cinemaPlaybackDurationMs(line), [line]);
+  const coordinates = useMemo(() => (line?.coordinates ?? []) as LngLat[], [line]);
+  const distance = useMemo(() => line ? lineLengthMiles(coordinates) : null, [line, coordinates]);
+  const canPlay = Boolean(mapReady && token && coordinates.length >= 2);
+  const stopProgress = useMemo(() => orderedStopProgress(coordinates, stops), [stops, coordinates]);
+  const seek = useCallback((value: number, selected?: number) => {
+    const next = Math.max(0, Math.min(1, value));
+    progressRef.current = next;
+    setProgress(next);
+    setSelectedIndex(selected ?? stopProgress.filter((stop) => stop.at <= next + 0.002).at(-1)?.index ?? 0);
+    setSeekEpoch((epoch) => epoch + 1);
+  }, [stopProgress]);
 
   useEffect(() => {
-    progressRef.current = progress ?? 0;
-  }, [progress]);
-
-  const routeKey = useMemo(
-    () => JSON.stringify({ stops, line }),
-    [stops, line],
-  );
-  const canPlay = Boolean(token && line && line.coordinates.length >= 2);
-  const playbackMs = useMemo(
-    () => cinemaPlaybackMsAtRate(line, speedRate),
-    [line, speedRate],
-  );
-
-  const mediaStops = useMemo(
-    () => stops.filter((stop) => isAlongRoutePlaceStop(stop)),
-    [stops],
-  );
+    const onFullscreenChange = () => {
+      setFullScreen(document.fullscreenElement === stageRef.current);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setPlaying(false);
-      setProgress(0);
-      setActiveStopIndex(null);
-      setSeenStops(new Set());
-      setFollowCamera(true);
-      setSpeedRate(1);
-      if (autoPlay && canPlay) {
-        setPlaying(true);
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [routeKey, autoPlay, canPlay]);
-
-  useEffect(() => {
-    if (!playing || activeStopIndex != null) {
-      return;
-    }
-
+    if (!playing || !canPlay) return;
     let frame = 0;
     const started = performance.now();
-    const startProgress = progressRef.current;
-
+    const from = progressRef.current;
     const tick = (now: number) => {
-      const elapsed = now - started;
-      const next = Math.min(1, startProgress + elapsed / playbackMs);
+      const next = playbackProgress(from, now - started, duration, speed);
+      progressRef.current = next;
       setProgress(next);
-
-      if (line && mediaStops.length > 0) {
-        const coordinates = line.coordinates as LngLat[];
-        for (const stop of mediaStops) {
-          if (seenStops.has(stop.listIndex)) {
-            continue;
-          }
-          const at = progressNearCoordinate(coordinates, stop.lngLat);
-          if (Math.abs(at - next) < 0.018) {
-            setPlaying(false);
-            setActiveStopIndex(stop.listIndex);
-            setSeenStops((prev) => new Set(prev).add(stop.listIndex));
-            return;
-          }
-        }
-      }
-
-      if (next >= 1) {
-        setPlaying(false);
-        return;
-      }
-      frame = window.requestAnimationFrame(tick);
+      const passed = stopProgress.filter((stop) => stop.at <= next + 0.002).at(-1);
+      if (passed) setSelectedIndex(passed.index);
+      if (next >= 1) { setPlaying(false); return; }
+      frame = requestAnimationFrame(tick);
     };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [playing, canPlay, duration, speed, seekEpoch, stopProgress]);
 
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, activeStopIndex, playbackMs, seekEpoch]);
+  const selectStop = (index: number) => {
+    setPlaying(false); setMediaOpen(false); setSelectedIndex(index); setFollow(false); setFocusedIndex(index);
+    const point = stopProgress.find((stop) => stop.index === index);
+    if (point && line) seek(point.at, index);
+  };
+  const selected = itineraryStops[selectedIndex];
 
-  const activeStop =
-    activeStopIndex == null
-      ? null
-      : (stops.find((s) => s.listIndex === activeStopIndex) ?? null);
-  const activeItinerary =
-    activeStopIndex == null ? null : (itineraryStops[activeStopIndex] ?? null);
-
-  const chargeNear = useMemo(() => {
-    if (!playing || progress == null || !line) {
-      return false;
-    }
-    const coordinates = line.coordinates as LngLat[];
-    return stops.some((stop) => {
-      if (stop.kind !== "charge" && stop.role !== "charge") {
-        return false;
-      }
-      const at = progressNearCoordinate(coordinates, stop.lngLat);
-      return Math.abs(at - progress) < 0.05;
-    });
-  }, [playing, progress, line, stops]);
-
-  return (
-    <div className="flex flex-col gap-4" data-testid="route-cinema">
-      <div className="relative">
-        <RouteMap
-          stops={stops}
-          line={line}
-          token={token}
-          missingTokenLabel={missingTokenLabel}
-          insufficientStopsLabel={insufficientStopsLabel}
-          playProgress={progress}
-          cinematic={cinematic}
-          followCamera={followCamera}
-          onStopSelect={(listIndex) => {
-            const stop = stops.find((s) => s.listIndex === listIndex);
-            if (!stop || !isAlongRoutePlaceStop(stop)) {
-              return;
-            }
-            setPlaying(false);
-            setActiveStopIndex(listIndex);
-            setSeenStops((prev) => new Set(prev).add(listIndex));
-          }}
-        />
-        {chargeNear ? (
-          <div className="pointer-events-none absolute inset-0 flex items-start justify-center pt-6">
-            <span className="animate-pulse rounded-sm bg-accent px-4 py-2 text-sm font-semibold tracking-[0.16em] text-accent-foreground uppercase shadow-lg">
-              {chargePulseLabel}
-            </span>
-          </div>
-        ) : null}
-        {activeStop && isAlongRoutePlaceStop(activeStop) ? (
-          <StopMediaOverlay
-            title={activeStop.name}
-            description={activeItinerary?.reason ?? null}
-            lat={activeItinerary?.lat ?? activeStop.lngLat[1]}
-            lng={activeItinerary?.lng ?? activeStop.lngLat[0]}
-            kind={activeItinerary?.kind ?? activeStop.kind}
-            continueLabel={continueLabel}
-            watchPlaceLabel={watchPlaceLabel}
-            openYoutubeLabel={openYoutubeLabel}
-            onContinue={() => {
-              setActiveStopIndex(null);
-              setPlaying(true);
-            }}
-          />
-        ) : null}
+  return <div className="space-y-4" data-testid="route-cinema">
+    <div ref={stageRef} className="relative overflow-hidden rounded-xl border border-black/10 bg-[#071016] text-white [&:fullscreen]:flex [&:fullscreen]:h-svh [&:fullscreen]:w-svw [&:fullscreen]:flex-col [&:fullscreen]:justify-center [&:fullscreen]:rounded-none">
+      <RouteMap stops={stops} line={line} token={token} cinematic followCamera={follow} playProgress={progress}
+        fullScreen={fullScreen} focusedStopIndex={focusedIndex} onReadyChange={setMapReady} onStopSelect={selectStop}
+        missingTokenLabel={t("mapMissingToken")} insufficientStopsLabel={t("mapNoCoordinates")} />
+      <div className="absolute top-3 right-16 left-3 flex flex-wrap gap-1 rounded-xl border border-white/15 bg-[#071016]/90 p-1 text-xs shadow-lg sm:right-auto">
+        <button type="button" aria-pressed={follow} onClick={() => { setFocusedIndex(null); setFollow(!follow); }} className={`min-h-10 rounded-lg px-3 ${follow ? "bg-[#e31937]" : "hover:bg-white/10"}`} data-testid="route-cinema-follow">{t("cinemaFollow")}</button>
+        <button type="button" onClick={() => { setFollow(false); setFocusedIndex(null); }} className="min-h-10 rounded-lg px-3 hover:bg-white/10">{t("cinemaFreeCam")}</button>
       </div>
-
-      {canPlay ? (
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              data-testid="route-cinema-play"
-              className="inline-flex h-12 items-center justify-center rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90"
-              onClick={() => {
-                if (activeStopIndex != null) {
-                  return;
-                }
-                if (!playing && progress != null && progress >= 1) {
-                  setProgress(0);
-                  setSeenStops(new Set());
-                }
-                if (!playing && (progress == null || progress === 0)) {
-                  setProgress(0);
-                }
-                setPlaying((value) => !value);
-              }}
-            >
-              {playing
-                ? pauseLabel
-                : progress != null && progress >= 1
-                  ? replayLabel
-                  : playLabel}
-            </button>
-            <button
-              type="button"
-              data-testid="route-cinema-follow"
-              className={`inline-flex h-12 items-center justify-center rounded-sm border px-4 text-sm font-semibold tracking-[0.12em] uppercase transition-colors ${
-                followCamera
-                  ? "border-accent text-foreground"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              }`}
-              onClick={() => setFollowCamera((value) => !value)}
-            >
-              {followCamera ? followLabel : freeCamLabel}
-            </button>
-            <div
-              className="flex items-center gap-1"
-              role="group"
-              aria-label={speedLabel}
-            >
-              {SPEED_OPTIONS.map((rate) => (
-                <button
-                  key={rate}
-                  type="button"
-                  data-testid={`route-cinema-speed-${rate}`}
-                  className={`inline-flex h-10 min-w-12 items-center justify-center rounded-sm border px-2 text-sm transition-colors ${
-                    speedRate === rate
-                      ? "border-accent text-foreground"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  }`}
-                  onClick={() => {
-                    setSpeedRate(rate);
-                    if (playing) {
-                      setSeekEpoch((n) => n + 1);
-                    }
-                  }}
-                >
-                  {rate}×
-                </button>
-              ))}
-            </div>
-          </div>
-          <label className="flex flex-col gap-2">
-            <span className="sr-only">{scrubLabel}</span>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.001}
-              value={progress ?? 0}
-              data-testid="route-cinema-scrubber"
-              aria-label={scrubLabel}
-              className="h-2 w-full cursor-pointer accent-[var(--accent)]"
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                setProgress(next);
-                setSeekEpoch((n) => n + 1);
-              }}
-            />
-          </label>
-        </div>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-3 border-t border-white/10 bg-[#071016]/95 px-4 py-3 sm:flex-nowrap" data-testid="route-player-controls">
+        <button type="button" disabled={!canPlay} data-testid="route-cinema-play" aria-label={playing ? t("cinemaPause") : progress >= 1 ? t("cinemaReplay") : t("cinemaPlay")}
+          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-[#e31937] disabled:opacity-30"
+          onClick={() => { if (progressRef.current === 0 || progressRef.current >= 1) setFollow(true); if (progressRef.current >= 1) seek(0); setMediaOpen(false); setFocusedIndex(null); setPlaying(!playing); }}>
+          <svg viewBox="0 0 24 24" className="size-5" fill="currentColor" aria-hidden>{playing ? <path d="M6 4h4v16H6zM14 4h4v16h-4z" /> : <path d="m7 4 14 8-14 8z" />}</svg>
+        </button>
+        <span className="text-xs tabular-nums" data-testid="route-playback-time">{playbackTime(progress * duration)}</span>
+        <input type="range" min={0} max={1} step={0.001} value={progress} disabled={!canPlay} aria-label={t("cinemaScrub")} data-testid="route-cinema-scrubber"
+          className="min-w-20 flex-1 cursor-pointer accent-[#e31937]" onChange={(event) => { setFocusedIndex(null); seek(Number(event.target.value)); }} />
+        <span className="text-xs text-white/60 tabular-nums">{playbackTime(duration)}</span>
+        <select aria-label={t("cinemaSpeed")} value={speed} onChange={(event) => setSpeed(Number(event.target.value))} className="h-10 rounded-full border border-white/20 bg-[#111d25] px-3 text-xs">
+          {[0.5, 1, 2, 4].map((rate) => <option key={rate} value={rate}>{rate}×</option>)}
+        </select>
+        <button type="button" aria-label={t("fullscreen")} onClick={() => {
+          if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+          else void stageRef.current?.requestFullscreen?.().catch(() => {});
+        }} className="flex size-10 items-center justify-center rounded-lg border border-white/15 hover:bg-white/10"><svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden><path d="M9 4H4v5m11-5h5v5M4 15v5h5m6 0h5v-5" /></svg></button>
+      </div>
+      {mediaOpen && selected ? <StopMediaOverlay title={selected.name} description={selected.reason} lat={selected.lat} lng={selected.lng} kind={selected.kind} continueLabel={t("closePreview")} watchPlaceLabel={t("cinemaWatchPlace")} openYoutubeLabel={t("placeYoutube")} onContinue={() => setMediaOpen(false)} /> : null}
     </div>
-  );
+    <p className="px-1 text-xs text-black/50">{line ? t("previewHint") : t("roadUnavailable")}</p>
+    <RouteStops stops={itineraryStops} selectedIndex={selectedIndex} distance={distance} onSelect={selectStop} onMedia={() => { setPlaying(false); setMediaOpen(true); stageRef.current?.scrollIntoView({behavior: "smooth", block: "center"}); }} />
+  </div>;
 }

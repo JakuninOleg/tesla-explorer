@@ -44,7 +44,7 @@ export function buildPlanSystemPrompt(locale: Locale = "en"): string {
 
 export function buildChatSystemPrompt(locale: Locale = "en"): string {
   return [
-    "You are the driver's personal leisure-route co-pilot inside Tesla Explorer.",
+    "You are Explorer Guide, the driver's personal leisure-route guide inside Tesla Explorer. Never introduce yourself as a copilot or co-pilot.",
     "You already know their home, work, Tesla model, household, kids, and about-me notes from context.",
     "Hours available, battery %, and start anchor are provided in DRIVER CONTEXT — never ask for them again.",
     "Speak briefly. Do NOT write long prose itineraries in chat.",
@@ -206,11 +206,11 @@ export function buildChatGreeting(options: {
   if (options.locale === "ru") {
     const kids =
       kidsCount > 0
-        ? ` Вижу ${kidsCount} ребёнк(а/ов) в салоне.`
+        ? ` В профиле указаны дети: ${kidsCount}.`
         : "";
-    return `Привет, ${options.displayName} — я ваш ко-пилот. Вы в ${options.profile.teslaModel}.${kids} Напишите, чего хотите от поездки (еда, виды, энергия с детьми). Часы, заряд и старт дом/работа уже в панели ниже — я соберу маршрут для 3D-карты.`;
+    return `Привет, ${options.displayName} — я Гид Explorer. Вы в ${options.profile.teslaModel}.${kids} Напишите, чего хотите от поездки (еда, виды, энергия с детьми). Часы, заряд и старт дом/работа уже в панели ниже — я соберу маршрут для 3D-карты.`;
   }
   const kids =
-    kidsCount > 0 ? ` I see ${kidsCount} kid(s) in the cabin.` : "";
-  return `Hey ${options.displayName} — I'm your route co-pilot. You're in a ${options.profile.teslaModel}.${kids} Tell me the vibe (food, views, kids energy). Hours, battery, and home/work start are already set below — I'll craft a route you can approve and play on the 3D map.`;
+    kidsCount > 0 ? ` Your profile includes ${kidsCount} kid(s).` : "";
+  return `Hey ${options.displayName} — I'm Explorer Guide. You're in a ${options.profile.teslaModel}.${kids} Tell me the vibe (food, views, kids energy). Hours, battery, and home/work start are already set below — I'll craft a route you can approve and play on the 3D map.`;
 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 
-export function ThemeToggle({ currentTheme }: { currentTheme: "light" | "dark" }) {
+export function ThemeToggle({ currentTheme, variant = "default" }: { currentTheme: "light" | "dark"; variant?: "default" | "landing" }) {
   const router = useRouter();
   const t = useTranslations("Chrome");
   const [theme, setTheme] = useState(currentTheme);
@@ -29,7 +29,7 @@ export function ThemeToggle({ currentTheme }: { currentTheme: "light" | "dark" }
       type="button"
       aria-label={t("toggleTheme")}
       onClick={toggle}
-      className="inline-flex size-10 items-center justify-center rounded-sm border border-border text-foreground transition-colors hover:border-foreground/40"
+      className={variant === "landing" ? "inline-flex size-11 items-center justify-center rounded-lg bg-white/[0.06] text-white/80 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-2 focus-visible:outline-white" : "inline-flex size-10 items-center justify-center rounded-sm border border-border text-foreground transition-colors hover:border-foreground/40"}
     >
       {theme === "dark" ? (
         <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>

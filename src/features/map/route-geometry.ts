@@ -213,6 +213,7 @@ export function cameraFollowTarget(
 export function progressNearCoordinate(
   coordinates: LngLat[],
   target: LngLat,
+  minProgress = 0,
 ): number {
   if (coordinates.length === 0) {
     return 0;
@@ -221,19 +222,30 @@ export function progressNearCoordinate(
     return 0;
   }
 
-  let bestProgress = 0;
+  const total = lineLengthMiles(coordinates);
+  if (total === 0) return 0;
+  let bestProgress = minProgress;
   let bestDistance = Number.POSITIVE_INFINITY;
-  const samples = 48;
-  for (let i = 0; i <= samples; i += 1) {
-    const progress = i / samples;
-    const point = pointAlongLine(coordinates, progress);
-    if (!point) {
-      continue;
-    }
+  let travelled = 0;
+  for (let i = 1; i < coordinates.length; i += 1) {
+    const a = coordinates[i - 1]!;
+    const b = coordinates[i]!;
+    const length = haversineMiles(a, b);
+    const start = travelled;
+    travelled += length;
+    if (!length || travelled / total < minProgress) continue;
+    // Project onto each road segment, restricted to the remaining ordered route.
+    const longitudeScale = Math.cos(target[1] * Math.PI / 180);
+    const dx = (b[0] - a[0]) * longitudeScale;
+    const dy = b[1] - a[1];
+    const denominator = dx * dx + dy * dy;
+    const projected = denominator ? ((target[0] - a[0]) * longitudeScale * dx + (target[1] - a[1]) * dy) / denominator : 0;
+    const fraction = Math.max(0, (minProgress * total - start) / length, Math.min(1, projected));
+    const point: LngLat = [a[0] + (b[0] - a[0]) * fraction, a[1] + (b[1] - a[1]) * fraction];
     const distance = haversineMiles(point, target);
     if (distance < bestDistance) {
       bestDistance = distance;
-      bestProgress = progress;
+      bestProgress = (start + fraction * length) / total;
     }
   }
   return bestProgress;

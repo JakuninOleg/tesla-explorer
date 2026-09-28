@@ -5,12 +5,13 @@ import { useState } from "react";
 import { rateRouteInputSchema } from "@/features/routes/itinerary-schema";
 import { rateRouteAction } from "@/features/routes/route-actions";
 import { useRouter } from "@/i18n/navigation";
+import { LandingIcon } from "@/features/marketing/landing-icon";
 
 const fieldClass =
-  "mt-2 w-full rounded-sm border border-border bg-muted px-3 py-3 text-sm text-foreground outline-none transition-colors focus:border-foreground/40";
+  "mt-2 w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-[#e82142] focus:ring-2 focus:ring-[#e82142]/10";
 
 const labelClass =
-  "text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase";
+  "text-sm font-medium text-foreground";
 
 export function RateRouteForm({
   routeId,
@@ -31,7 +32,8 @@ export function RateRouteForm({
 
   return (
     <form
-      className="flex flex-col gap-5"
+      id="rating"
+      className="flex scroll-mt-24 flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
         setError(null);
@@ -54,23 +56,29 @@ export function RateRouteForm({
         }
 
         void (async () => {
-          const result = await rateRouteAction(parsed.data);
-          setPending(false);
-          if (!result.ok) {
-            setError(
-              result.error === "unauthorized"
-                ? t("errorUnauthorized")
-                : result.error === "not_approved"
-                  ? t("errorNotApproved")
-                  : t("errorSave"),
-            );
-            return;
+          try {
+            const result = await rateRouteAction(parsed.data);
+            if (!result.ok) {
+              setError(
+                result.error === "unauthorized"
+                  ? t("errorUnauthorized")
+                  : result.error === "not_approved"
+                    ? t("errorNotApproved")
+                    : t("errorSave"),
+              );
+              return;
+            }
+            setSaved(true);
+            router.refresh();
+          } catch {
+            setError(t("errorSave"));
+          } finally {
+            setPending(false);
           }
-          setSaved(true);
-          router.refresh();
         })();
       }}
     >
+      <div className="flex items-center gap-3 rounded-xl bg-[#f6f7f8] p-4 text-sm leading-relaxed text-black/60"><LandingIcon name="star" className="size-5 shrink-0 text-[#e31937]" />{t("feedbackIntro")}</div>
       <label className="block">
         <span className={labelClass}>{t("rating")}</span>
         <select
@@ -109,15 +117,15 @@ export function RateRouteForm({
         />
       </label>
 
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
       {saved ? <p className="text-sm text-muted-foreground">{t("saved")}</p> : null}
 
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex h-12 items-center justify-center rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90 disabled:opacity-60"
+        className="group inline-flex h-12 w-fit cursor-pointer items-center justify-center gap-3 rounded-xl bg-[#e31937] px-6 text-sm font-medium text-white transition-colors hover:bg-[#c4122d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#e31937] disabled:cursor-wait disabled:opacity-60"
       >
-        {t("saveFeedback")}
+        {t("saveFeedback")}<LandingIcon name="arrow" className="size-4 transition-transform motion-safe:group-hover:translate-x-1" />
       </button>
     </form>
   );

@@ -8,10 +8,10 @@ import { planRouteAction } from "@/features/routes/route-actions";
 import { useRouter } from "@/i18n/navigation";
 
 const fieldClass =
-  "mt-2 w-full rounded-sm border border-border bg-muted px-3 py-3 text-sm text-foreground outline-none transition-colors focus:border-foreground/40";
+  "mt-2 w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-[#e82142] focus:ring-2 focus:ring-[#e82142]/10";
 
 const labelClass =
-  "text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase";
+  "text-sm font-medium text-foreground";
 
 function readCoord(value: FormDataEntryValue | null): number | null {
   const raw = String(value ?? "").trim();
@@ -64,25 +64,30 @@ export function PlanRouteForm({
         }
 
         void (async () => {
-          const result = await planRouteAction(parsed.data);
-          if (!result.ok) {
-            setPending(false);
-            if (result.error === "unauthorized") {
-              setError(t("errorUnauthorized"));
-            } else if (result.error === "no_profile") {
-              setError(t("errorNoProfile"));
-            } else if (result.error === "ai") {
-              setError(result.message ?? t("errorAi"));
-            } else if (result.error === "parse") {
-              setError(t("errorParse"));
-            } else {
-              setError(t("errorSave"));
+          try {
+            const result = await planRouteAction(parsed.data);
+            if (!result.ok) {
+              if (result.error === "unauthorized") {
+                setError(t("errorUnauthorized"));
+              } else if (result.error === "no_profile") {
+                setError(t("errorNoProfile"));
+              } else if (result.error === "ai") {
+                setError(result.message ?? t("errorAi"));
+              } else if (result.error === "parse") {
+                setError(t("errorParse"));
+              } else {
+                setError(t("errorSave"));
+              }
+              return;
             }
-            return;
-          }
 
-          router.push(`/routes/${result.id}`);
-          router.refresh();
+            router.push(`/routes/${result.id}`);
+            router.refresh();
+          } catch {
+            setError(t("errorSave"));
+          } finally {
+            setPending(false);
+          }
         })();
       }}
     >
@@ -98,7 +103,7 @@ export function PlanRouteForm({
           ).map(([value, label]) => (
             <label
               key={value}
-              className="flex cursor-pointer items-start gap-2 rounded-sm border border-border px-3 py-3 text-sm has-[:checked]:border-accent"
+              className="flex cursor-pointer items-start gap-2 rounded-xl border border-border bg-white px-4 py-3 text-sm transition-colors has-[:checked]:border-[#e82142] has-[:checked]:bg-[#fff5f6]"
             >
               <input
                 type="radio"
@@ -161,12 +166,12 @@ export function PlanRouteForm({
         </label>
       </div>
 
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
 
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex h-12 items-center justify-center rounded-sm bg-accent px-6 text-sm font-semibold tracking-[0.12em] text-accent-foreground uppercase transition-opacity hover:opacity-90 disabled:opacity-60"
+        className="inline-flex h-12 cursor-pointer items-center justify-center rounded-xl bg-[#e31937] px-6 text-sm font-medium text-white transition-colors hover:bg-[#c4122d] disabled:cursor-wait disabled:opacity-60"
       >
         {pending ? t("planning") : t("plan")}
       </button>

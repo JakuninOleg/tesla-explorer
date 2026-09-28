@@ -19,8 +19,8 @@ describe("i18n message catalogs", () => {
   });
 
   it("keeps product-facing home copy without internal labels", () => {
-    expect(en.Home.cta).toMatch(/sign in|plan/i);
-    expect(ru.Home.cta).toMatch(/войти|спланир/i);
+    expect(en.Home.cta).toMatch(/try|free|sign|plan/i);
+    expect(ru.Home.cta).toMatch(/попробовать|бесплатно|войти|спланир/i);
     expect(en.Home.headline.length).toBeGreaterThan(10);
     expect(ru.Home.headline.length).toBeGreaterThan(10);
     expect(en.Home.heroPromptExample.length).toBeGreaterThan(5);

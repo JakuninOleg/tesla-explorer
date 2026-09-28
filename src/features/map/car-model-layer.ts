@@ -1,14 +1,16 @@
 import mapboxgl from "mapbox-gl";
 import * as THREE from "three";
-import { createEvCarGroup } from "@/features/map/ev-car-mesh";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { disposeModel, prepareTeslaModel } from "@/features/map/tesla-model";
 import type { LngLat } from "@/features/map/route-geometry";
 
 export { createEvCarGroup } from "@/features/map/ev-car-mesh";
 
 const LAYER_ID = "tesla-explorer-ev-car";
 
-/** Meters — large enough to read in chase cam. */
-export const CAR_METERS_SCALE = 6.5;
+/** Deliberately exaggerated marker length in meters, not vehicle dimensions. */
+export const CAR_METERS_SCALE = 12;
 
 export type CarModelPose = {
   lngLat: LngLat;
@@ -47,10 +49,10 @@ type Transform = {
   scale: number;
 };
 
-function transformFromPose(pose: CarModelPose): Transform {
+function transformFromPose(pose: CarModelPose, elevation = 0): Transform {
   const merc = mapboxgl.MercatorCoordinate.fromLngLat(
     { lng: pose.lngLat[0], lat: pose.lngLat[1] },
-    0.25,
+    elevation + 0.25,
   );
   const orient = modelOrientationFromBearing(pose.headingDeg);
   return {
@@ -80,9 +82,12 @@ type CarLayerState = {
  */
 export function createCarModelLayer(
   initialPose: CarModelPose | null,
+  onReady?: (ready: boolean) => void,
 ): mapboxgl.CustomLayerInterface & {
   setPose: (pose: CarModelPose | null) => void;
 } {
+  let disposed = false;
+  let environment: THREE.WebGLRenderTarget | undefined;
   const state: Partial<CarLayerState> = {
     pose: initialPose,
     transform: initialPose ? transformFromPose(initialPose) : null,
@@ -107,7 +112,7 @@ export function createCarModelLayer(
       scene.add(fill);
       scene.add(new THREE.AmbientLight(0xffffff, 0.65));
 
-      const car = createEvCarGroup();
+      const car = new THREE.Group();
       scene.add(car);
 
       const renderer = new THREE.WebGLRenderer({
@@ -116,6 +121,14 @@ export function createCarModelLayer(
         antialias: true,
       });
       renderer.autoClear = false;
+      const room = new RoomEnvironment();
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      environment = pmrem.fromScene(room, 0.04);
+      scene.environment = environment.texture;
+      scene.environmentIntensity = 0.6;
+      room.dispose();
+      pmrem.dispose();
+      renderer.resetState();
 
       state.camera = camera;
       state.scene = scene;
@@ -123,6 +136,23 @@ export function createCarModelLayer(
       state.car = car;
       state.map = map;
       car.visible = Boolean(state.pose);
+      onReady?.(false);
+      new GLTFLoader().load("/models/tesla-model-3/scene.gltf", (gltf) => {
+        if (disposed) {
+          disposeModel(gltf.scene);
+          return;
+        }
+        try {
+          car.add(prepareTeslaModel(gltf.scene));
+          onReady?.(true);
+          map.triggerRepaint();
+        } catch {
+          disposeModel(gltf.scene);
+          onReady?.(false);
+        }
+      }, undefined, () => {
+        if (!disposed) onReady?.(false);
+      });
     },
 
     render(_gl, matrix) {
@@ -137,6 +167,10 @@ export function createCarModelLayer(
       }
 
       state.car.visible = true;
+      // Standard Satellite may enable terrain: sea-level models end up underground.
+      if (state.pose && state.map) {
+        state.transform = transformFromPose(state.pose, state.map.queryTerrainElevation(state.pose.lngLat) ?? 0);
+      }
       const t = state.transform;
       const rotationX = new THREE.Matrix4().makeRotationAxis(
         new THREE.Vector3(1, 0, 0),
@@ -162,7 +196,18 @@ export function createCarModelLayer(
       state.camera.projectionMatrix = m.multiply(l);
       state.renderer.resetState();
       state.renderer.render(state.scene, state.camera);
-      state.map?.triggerRepaint();
+    },
+
+    onRemove() {
+      disposed = true;
+      // Mapbox owns the shared context; dispose only this layer's resources.
+      if (state.scene) disposeModel(state.scene);
+      environment?.dispose();
+      state.renderer?.dispose();
+      state.renderer = undefined;
+      state.scene = undefined;
+      state.car = undefined;
+      state.map = undefined;
     },
 
     setPose(pose) {

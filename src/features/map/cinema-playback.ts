@@ -1,5 +1,23 @@
 import type { LineString } from "geojson";
-import { lineLengthMiles, type LngLat } from "@/features/map/route-geometry";
+import { lineLengthMiles, progressNearCoordinate, type LngLat, type MappedStop } from "@/features/map/route-geometry";
+
+export function orderedStopProgress(coordinates: LngLat[], stops: MappedStop[]) {
+  let previous = 0;
+  return stops.map((stop, index) => {
+    const at = index === 0 ? 0 : index === stops.length - 1 ? 1 : progressNearCoordinate(coordinates, stop.lngLat, previous);
+    previous = at;
+    return { index: stop.listIndex, at };
+  });
+}
+
+export function playbackProgress(from: number, elapsedMs: number, durationMs: number, speed: number): number {
+  return Math.min(1, Math.max(0, from + Math.max(0, elapsedMs) * speed / Math.max(1, durationMs)));
+}
+
+export function playbackTime(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
 
 /** Base drive cinema length — ~2.5 minutes for a short hop. */
 export const CINEMA_PLAYBACK_MIN_MS = 150_000;
